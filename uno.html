@@ -60,20 +60,76 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   overflow:hidden}
 
 /* Opponent seats around the top */
-#opponents{position:absolute;top:0;left:0;right:0;display:flex;
-  justify-content:center;align-items:flex-start;gap:14px;padding:12px 16px;
-  flex-wrap:wrap}
-.opponent{display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.1);
-  border-radius:12px;padding:8px 14px;min-width:90px;transition:border-color .3s}
-.opponent.active-turn{border-color:#4cc9f0;box-shadow:0 0 12px rgba(76,201,240,.4)}
-.opp-name{font-size:.75rem;font-weight:600;color:#e0e1dd;white-space:nowrap;
-  max-width:100px;overflow:hidden;text-overflow:ellipsis}
-.opp-name.disconnected{color:#778da9;text-decoration:line-through}
-.opp-cards{display:flex;gap:2px;justify-content:center;align-items:center;flex-wrap:wrap}
-.mini-card{width:18px;height:26px;border-radius:3px;background:#1a3a8a;
-  border:1px solid rgba(255,255,255,0.25)}
-.opp-count{font-size:.7rem;color:#fca311;font-weight:700}
+/* Optimized for 10 Players on Chromebooks */
+#opponents {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 6px; /* Tightened from 14px */
+    padding: 6px 10px; 
+    flex-wrap: wrap;
+    z-index: 10;
+}
+
+.opponent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px; /* Tighter spacing */
+    background: rgba(0,0,0,0.45); /* Darker for better contrast */
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; /* Slightly rounder */
+    padding: 4px 8px; /* Reduced from 8x14 */
+    min-width: 70px; /* Reduced from 90px to fit more people */
+    transition: border-color .3s;
+}
+
+.opponent.active-turn {
+    border-color: #4cc9f0;
+    box-shadow: 0 0 8px rgba(76,201,240,.4);
+}
+
+.opp-name {
+    font-size: 0.65rem; /* Slightly smaller text */
+    font-weight: 600;
+    color: #e0e1dd;
+    white-space: nowrap;
+    max-width: 70px; /* Matched to min-width */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.opp-name.disconnected {
+    color: #778da9;
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.opp-cards {
+    display: flex;
+    gap: 1px; /* Tighter card spacing */
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mini-card {
+    width: 14px; /* Reduced from 18px */
+    height: 20px; /* Reduced from 26px */
+    border-radius: 2px;
+    background: #1a3a8a;
+    border: 1px solid rgba(255,255,255,0.25);
+}
+
+.opp-count {
+    font-size: 0.65rem;
+    color: #fca311;
+    font-weight: 800;
+}
 
 /* Center play zone */
 #center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
