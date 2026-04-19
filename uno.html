@@ -201,6 +201,18 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   #top-card{width:68px;height:96px}
   #chat-panel{width:200px}
 }
+#chat-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    background-color: #ff595e; /* Red color */
+    border: 1px solid white;
+    border-radius: 50%;
+    display: none; /* Starts hidden */
+    z-index: 100;
+}
 </style>
 </head>
 <body>
@@ -294,16 +306,19 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </div>
 
 <!-- ── CHAT ──────────────────────────────────────────────── -->
-<button id="chat-toggle" onclick="toggleChat()" title="Chat">💬</button>
-<div id="chat-panel">
-  <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1);
-    font-size:.8rem;font-weight:700;color:#4cc9f0">Room Chat</div>
-  <div id="chat-messages"></div>
-  <div id="chat-input-row">
-    <input id="chat-input" placeholder="Message…" maxlength="200"
-      onkeydown="if(event.key==='Enter')sendChat()">
-    <button id="chat-send" onclick="sendChat()">➤</button>
-  </div>
+<!-- THE BUTTON (Outside the panel) -->
+<button id="chat-toggle" onclick="toggleChat()" title="Chat" style="position: relative;"> 
+    💬 <span id="chat-dot"></span> 
+</button> 
+
+<!-- THE PANEL -->
+<div id="chat-panel"> 
+    <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1); font-size:.8rem;font-weight:700;color:#4cc9f0">Room Chat</div> 
+    <div id="chat-messages"></div> 
+    <div id="chat-input-row"> 
+        <input id="chat-input" placeholder="Message…" maxlength="200" onkeydown="if(event.key==='Enter')sendChat()"> 
+        <button id="chat-send" onclick="sendChat()">➤</button> 
+    </div> 
 </div>
 
 <!-- ── TOAST ─────────────────────────────────────────────── -->
@@ -600,6 +615,13 @@ function onChat(msg) {
   if (msg.from === 'Server' && msg.text !== 'Game started! 🎴 ' + '') {
     toast(msg.text);
   }
+// Show the red notification dot
+const dot = document.getElementById('chat-dot');
+const panel = document.getElementById('chat-panel');
+if (dot && (panel.style.display === 'none' || panel.classList.contains('hidden'))) {
+    dot.style.display = 'block';
+}
+
 }
 
 function escHtml(s) {
