@@ -363,17 +363,20 @@ wss.on('connection', (ws) => {
         if (msg.type === 'join') {
             const code = (msg.code || '').toUpperCase().trim();
             const name = (msg.name || 'Player').slice(0, 20).trim();
+            
             if (!code || code.length < 2) {
                 ws.send(JSON.stringify({ type:'error', msg:'Invalid room code.' }));
                 return;
             }
+
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
-            
+
             const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
+            
             if (existingPlayer) {
                 if (existingPlayer.connected) {
-                    ws.send(JSON.stringify({ type:'error', msg:'Name already taken!' }));
+                    ws.send(JSON.stringify({ type:'error', msg:'Name taken!' }));
                     return;
                 } else {
                     existingPlayer.ws = ws;
@@ -386,24 +389,35 @@ wss.on('connection', (ws) => {
                     return;
                 }
                 if (room.players.length >= MAX_PLAYERS) {
-                    ws.send(JSON.stringify({ type:'error', msg:'Room is full!' }));
+                    ws.send(JSON.stringify({ type:'error', msg:'Room full!' }));
                     return;
                 }
                 myIdx = room.players.length;
                 room.players.push({ id: myIdx, name, ws, hand:[], connected:true, isBot:false });
             }
+
             myRoom = room;
-            ws.send(JSON.stringify({ type:'joined', code, name, yourIdx:myIdx, isHost: myIdx === 0, playerCount: room.players.length }));
+            ws.send(JSON.stringify({ 
+                type: 'joined', 
+                code, 
+                name, 
+                yourIdx: myIdx, 
+                isHost: myIdx === 0, 
+                playerCount: room.players.length 
+            }));
+
             sendChat(room, 'Server', `${name} joined.`);
-            
-            // Fix: Use room.players[0].name for hostName
-            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
+
+            // FIX IS HERE: Added [0] to players
+            broadcast(room, { 
+                type: 'lobby', 
+                players: room.players.map(p => p.name), 
+                hostName: room.players[0].name 
+            });
+
             if (room.state === 'playing') sendState(room);
             return;
         }
-        
-        if (!myRoom) return;
-        const room = myRoom;
 
         if (msg.type === 'start') {
             if (myIdx !== 0) return;
