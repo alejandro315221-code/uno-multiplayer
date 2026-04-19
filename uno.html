@@ -720,13 +720,13 @@ function playSound(type) {
   if (msg.from === 'Server' && msg.text !== 'Game started! 🎴 ' + '') {
     toast(msg.text);
   }
-// Show the red notification dot
-const dot = document.getElementById('chat-dot');
-const panel = document.getElementById('chat-panel');
-    if (dot && (panel.style.display === 'none' || panel.classList.contains('hidden'))) {
-        dot.style.display = 'block';
-        playSound('ding'); // <--- Add this line here
-    }
+  // Show the red notification dot and ding if chat is closed
+  const dot = document.getElementById('chat-dot');
+  // Check if we didn't send the message AND the chat panel is closed
+  if (dot && msg.from !== myName && !chatOpen) {
+    dot.style.display = 'block';
+    playSound('ding');
+  }
 
 
 }
