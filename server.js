@@ -26,7 +26,7 @@ const wss = new WebSocketServer({ server: httpServer });
 const COLORS = ['Red','Green','Blue','Yellow'];
 const VALUES = ['0','1','2','3','4','5','6','7','8','9','S','R','+2'];
 const COLOR_HEX = { Red:'#ff595e', Green:'#8ac926', Blue:'#1982c4', Yellow:'#ffca3a', Wild:'#333' };
-const MAX_PLAYERS = 6;
+const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 
 // ── State ────────────────────────────────────────────────────
