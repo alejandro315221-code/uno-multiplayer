@@ -709,24 +709,38 @@ function playSound(type) {
     }
   }
   
-  function onChat(msg) {
-  const el  = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = 'chat-msg' + (msg.from==='Server'?' server-msg':'');
-  div.innerHTML = `<span class="from">${escHtml(msg.from)}:</span> ${escHtml(msg.text)}`;
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
-  // Toast for game events (non-chat server messages)
-  if (msg.from === 'Server' && msg.text !== 'Game started! 🎴 ' + '') {
-    toast(msg.text);
-  }
-  // Show the red notification dot and ding if chat is closed
-  const dot = document.getElementById('chat-dot');
-  // Check if we didn't send the message AND the chat panel is closed
-  if (dot && msg.from !== myName && !chatOpen) {
-    dot.style.display = 'block';
-    playSound('ding');
-  }
+function onChat(msg) {
+    const el  = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-msg' + (msg.from === 'Server' ? ' server-msg' : '');
+    div.innerHTML = `<span class="from">${escHtml(msg.from)}:</span> ${escHtml(msg.text)}`;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+
+    // 1. Toast for server events
+    if (msg.from === 'Server' && msg.text !== 'Game started! 🎴') {
+        toast(msg.text);
+    }
+
+    // 2. Notification Dot AND Sound Logic
+    const dot = document.getElementById('chat-dot');
+    
+    // Check if the message is from SOMEONE ELSE and chat is closed
+    if (msg.from !== myName && !chatOpen) {
+        if (dot) dot.style.display = 'block';
+        
+        // This ensures the ding plays for BOTH server and players
+        playSound('ding'); 
+    }
+}
+
+// iPhone Audio "Wake Up" Trick:
+// This "unlocks" the speakers as soon as you tap ANY button (like Join)
+document.addEventListener('click', function() {
+    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (tempCtx.state === 'suspended') tempCtx.resume();
+}, { once: true });
+
 
 
 }
