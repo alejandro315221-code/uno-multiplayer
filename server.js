@@ -144,6 +144,11 @@ function nextTurn(room, steps=1) {
 
     room.turnIdx = nextIdx;
     room.hasDrawn = false;
+      // Trigger bot if the next player is a CPU
+  if (room.players[room.turnIdx].isBot) {
+    runBotTurn(room);
+  }
+
 }
 
 function handlePlay(room, playerIdx, cardIdx, chosenColor) {
@@ -237,8 +242,90 @@ function startGame(room) {
     sendChat(room, 'Server', 'Game started! ' + room.players.map(p=>p.name).join(', '));
     sendState(room);
 }
+function runBotTurn(room) {
+    const botPlayer = room.players[room.turnIdx];
+    if (!botPlayer || !botPlayer.isBot) return;
+
+    // 1. Calculate the randomized thinking time (1.00 to 2.00 seconds)
+    const thinkingTime = (Math.random() * (2.0 - 1.0) + 1.0).toFixed(2);
+    const delayMs = thinkingTime * 1000;
+
+    setTimeout(() => {
+        // 2. Find a playable card
+        let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeColor, room.activeVal));
+
+        if (playIdx !== -1) {
+            // 3. Play the card
+            const card = botPlayer.hand[playIdx];
+            let chosenColor = room.activeColor;
+            
+            // If it's a Wild, pick the color the bot has the most of
+            if (card.col === 'Wild') {
+                const counts = {};
+                botPlayer.hand.forEach(c => { 
+                    if (c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1; 
+                });
+                chosenColor = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Red');
+            }
+            handlePlay(room, room.turnIdx, playIdx, chosenColor);
+        } else {
+            // 4. No matches? Draw a card
+            handleDraw(room, room.turnIdx);
+            
+            // Try playing the drawn card immediately (standard Uno rules)
+            let newHand = botPlayer.hand;
+            let lastCardIdx = newHand.length - 1;
+            if (canPlay(newHand[lastCardIdx], room.activeColor, room.activeVal)) {
+                handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
+            } else {
+                handlePass(room, room.turnIdx);
+            }
+        }
+    }, delayMs);
+}
 
 // ── WebSocket connection handler ─────────────────────────────
+function runBotTurn(room) {
+  const botPlayer = room.players[room.turnIdx];
+  if (!botPlayer || !botPlayer.isBot) return;
+
+  // 1. Calculate the randomized thinking time (1.00 to 2.00 seconds)
+  const thinkingTime = (Math.random() * (2.0 - 1.0) + 1.0).toFixed(2);
+  const delayMs = thinkingTime * 1000;
+
+  setTimeout(() => {
+    // 2. Find a playable card
+    let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeColor, room.activeVal));
+
+    if (playIdx !== -1) {
+      // 3. Play the card
+      const card = botPlayer.hand[playIdx];
+      let chosenColor = room.activeColor;
+      
+      // If it's a Wild, pick the color the bot has the most of
+      if (card.col === 'Wild') {
+        const counts = {};
+        botPlayer.hand.forEach(c => { if(c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1; });
+        chosenColor = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Red');
+      }
+      
+      handlePlay(room, room.turnIdx, playIdx, chosenColor);
+    } else {
+      // 4. No matches? Draw a card
+      handleDraw(room, room.turnIdx);
+      
+      // Try playing the drawn card immediately (standard Uno rules)
+      let newHand = botPlayer.hand;
+      let lastCardIdx = newHand.length - 1;
+      if (canPlay(newHand[lastCardIdx], room.activeColor, room.activeVal)) {
+          handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
+      } else {
+          handlePass(room, room.turnIdx);
+      }
+    }
+  }, delayMs);
+}
+
 wss.on('connection', (ws) => {
     let myRoom = null;
     let myIdx = -1;
@@ -246,7 +333,33 @@ wss.on('connection', (ws) => {
     ws.on('message', (raw) => {
         let msg;
         try { msg = JSON.parse(raw); } catch { return; }
+    // Handle adding/removing CPUs
+    if (msg.type === 'set_cpus') {
+      if (!myRoom || myIdx !== 0) return; // Only the host (Idx 0) can do this
+      
+      // Remove all existing bots first to reset the count
+      myRoom.players = myRoom.players.filter(p => !p.isBot);
+      
+      // Add the new number of bots requested
+      for (let i = 0; i < msg.count; i++) {
+        myRoom.players.push({ 
+          name: `CPU ${i + 1} 🤖`, 
+          isBot: true, 
+          connected: true, 
+          hand: [] 
+        });
+      }
+      
+      // Tell everyone in the lobby to refresh their player list
+      broadcast(myRoom, { 
+        type: 'lobby', 
+        players: myRoom.players.map(p => p.name), 
+        hostName: myRoom.players[0].name 
+      });
+      return;
+    }
 
+        
         if (msg.type === 'join') {
             const code = (msg.code || '').toUpperCase().trim();
             const name = (msg.name || 'Player').slice(0, 20).trim();
