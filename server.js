@@ -364,48 +364,44 @@ wss.on('connection', (ws) => {
             const code = (msg.code || '').toUpperCase().trim();
             const name = (msg.name || 'Player').slice(0, 20).trim();
             if (!code || code.length < 2) {
-                ws.send(JSON.stringify({ type:'error', msg:'Invalid room code.' })); 
+                ws.send(JSON.stringify({ type:'error', msg:'Invalid room code.' }));
                 return;
             }
-
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
-
-            // Fix: Check for duplicate names
-            const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
             
+            const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
             if (existingPlayer) {
                 if (existingPlayer.connected) {
-                    ws.send(JSON.stringify({ type:'error', msg:'Name already taken in this room!' }));
+                    ws.send(JSON.stringify({ type:'error', msg:'Name already taken!' }));
                     return;
                 } else {
-                    // Rejoin logic
                     existingPlayer.ws = ws;
                     existingPlayer.connected = true;
                     myIdx = room.players.indexOf(existingPlayer);
                 }
             } else {
                 if (room.state !== 'lobby') {
-                    ws.send(JSON.stringify({ type:'error', msg:'Game in progress. Cannot join new players.' })); 
+                    ws.send(JSON.stringify({ type:'error', msg:'Game in progress.' }));
                     return;
                 }
                 if (room.players.length >= MAX_PLAYERS) {
-                    ws.send(JSON.stringify({ type:'error', msg:'Room is full!' })); 
+                    ws.send(JSON.stringify({ type:'error', msg:'Room is full!' }));
                     return;
                 }
                 myIdx = room.players.length;
-                room.players.push({ id: myIdx, name, ws, hand:[], connected:true });
+                room.players.push({ id: myIdx, name, ws, hand:[], connected:true, isBot:false });
             }
-
             myRoom = room;
-            const isHost = myIdx === 0;
-            ws.send(JSON.stringify({ type:'joined', code, name, yourIdx:myIdx, isHost, playerCount: room.players.length }));
+            ws.send(JSON.stringify({ type:'joined', code, name, yourIdx:myIdx, isHost: myIdx === 0, playerCount: room.players.length }));
             sendChat(room, 'Server', `${name} joined.`);
+            
+            // Fix: Use room.players[0].name for hostName
             broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
             if (room.state === 'playing') sendState(room);
             return;
         }
-
+        
         if (!myRoom) return;
         const room = myRoom;
 
