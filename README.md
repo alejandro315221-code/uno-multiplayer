@@ -39,7 +39,7 @@ npm start
 1. **You** open the URL, type your name + a room code (e.g. `PIZZA`), press Join
 2. Share the URL + room code with friends — they do the same
 3. **As host** (first to join), click **Start Game** once everyone is in
-4. Up to **6 players** per room
+4. Up to **10 players** per room
 5. Friends can rejoin using the same name if they disconnect
 
 ---
