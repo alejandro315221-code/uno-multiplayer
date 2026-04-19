@@ -295,6 +295,16 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     <div style="color:#778da9;font-size:.85rem;margin-bottom:6px">Share this code with friends!</div>
     <div class="room-code" id="lby-code-big"></div>
     <ul class="lobby-players" id="lby-players"></ul>
+    <!-- CPU Selection -->
+<div id="cpu-controls" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+    <p style="font-size: 0.85rem; color: #778da9; margin-bottom: 8px;">Add Computer Players</p>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+        <button class="btn-secondary" onclick="changeCPU(-1)" style="width: 35px; padding: 5px;">-</button>
+        <span id="cpu-count" style="font-weight: 900; font-size: 1.2rem; min-width: 25px; color: #ff595e;">0</span>
+        <button class="btn-secondary" onclick="changeCPU(1)" style="width: 35px; padding: 5px;">+</button>
+    </div>
+</div>
+
     <button class="btn-start" id="btn-start" onclick="sendStart()" disabled>Start Game</button>
     <div class="waiting-hint" id="lby-hint">Waiting for the host to start…</div>
   </div>
@@ -541,6 +551,17 @@ function renderTopCard(card, activeColor) {
   badge.textContent = '● ' + activeColor;
   badge.style.background = col;
   badge.style.color = activeColor==='Yellow'?'#333':'#fff';
+}
+let cpuCount = 0;
+function changeCPU(delta) {
+    // Only the host can add or remove CPUs
+    if (!isHost) return; 
+    
+    cpuCount = Math.max(0, Math.min(9, cpuCount + delta));
+    document.getElementById('cpu-count').textContent = cpuCount;
+    
+    // Tell the server in Oregon to add these bots
+    send({ type: 'set_cpus', count: cpuCount });
 }
 
 function renderHand(hand, activeColor, activeVal, isMyTurn, hasDrawn) {
