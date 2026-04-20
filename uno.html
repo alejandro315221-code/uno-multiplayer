@@ -655,13 +655,6 @@ function sendDraw() {
     playSound('draw'); // <--- ADD THIS LINE
     send({ type: 'draw' });
 }
-function sendDraw() {
-    if (!gameState) return;
-    if (gameState.yourIdx !== gameState.turnIdx) return;
-    if (gameState.hasDrawn) return;
-    playSound('draw'); // <--- ADD THIS LINE
-    send({ type: 'draw' });
-}
 
 function sendPass() { send({ type:'pass' }); }
 
@@ -764,7 +757,7 @@ document.addEventListener('click', function() {
 
 
 
-}
+// NO BRACE HERE
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -782,9 +775,13 @@ function toast(msg) {
 
 // ── Screen switcher ─────────────────────────────────────
 function showScreen(id) {
-  ['join','lobby','game'].forEach(s => {
+  const screens = ['join', 'lobby', 'game'];
+  screens.forEach(s => {
     const el = document.getElementById('screen-' + s);
-    if (el) el.style.display = s === id ? (s==='game'?'flex':'flex') : 'none';
+    if (el) {
+      // If this is the ID we want, show it as flex, otherwise hide it
+      el.style.display = (s === id) ? 'flex' : 'none';
+    }
   });
 }
 
