@@ -1,11 +1,11 @@
 // ============================================================
 // UNO Multiplayer Server — Node.js + ws
-// Updated for: Rejoining, Duplicate Prevention, and Auto-Resets
+// Fixed for: WebSocket Reference Errors, CPU Logic, and Start Crashes
 // ============================================================
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { WebSocketServer, WebSocket } = require('ws');
+const { WebSocketServer } = require('ws');
 const PORT = process.env.PORT || 3000;
 
 // ── HTTP server: serve uno.html + assets ─────────────────────
@@ -25,7 +25,6 @@ const wss = new WebSocketServer({ server: httpServer });
 // ── Game constants ───────────────────────────────────────────
 const COLORS = ['Red','Green','Blue','Yellow'];
 const VALUES = ['0','1','2','3','4','5','6','7','8','9','S','R','+2'];
-const COLOR_HEX = { Red:'#ff595e', Green:'#8ac926', Blue:'#1982c4', Yellow:'#ffca3a', Wild:'#333' };
 const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 
@@ -35,7 +34,7 @@ let rooms = {};
 function makeRoom(code) {
     return {
         code,
-        players: [], // { id, name, ws, hand:[], connected:true }
+        players: [], // { id, name, ws, hand:[], connected:true, isBot: false }
         state: 'lobby', 
         deck: [],
         discard: [],
@@ -91,7 +90,8 @@ function canPlay(card, activeColor, activeVal) {
 
 function broadcast(room, msg) {
     room.players.forEach(p => {
-        if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+        // FIXED: WebSocket.OPEN replaced with 1
+        if (p.ws && p.ws.readyState === 1) {
             p.ws.send(JSON.stringify(msg));
         }
     });
@@ -100,7 +100,9 @@ function broadcast(room, msg) {
 function sendState(room) {
     const top = room.discard[room.discard.length-1];
     room.players.forEach((p, idx) => {
-        if (!p.ws || p.ws.readyState !== WebSocket.OPEN) return;
+        // FIXED: WebSocket.OPEN replaced with 1
+        if (!p.ws || p.ws.readyState !== 1) return;
+        
         const others = room.players.map((op, oi) => ({
             name: op.name,
             cardCount: op.hand.length,
@@ -108,6 +110,7 @@ function sendState(room) {
             isYou: oi === idx,
             connected: op.connected,
         }));
+
         p.ws.send(JSON.stringify({
             type: 'state',
             hand: p.hand,
@@ -132,23 +135,19 @@ function sendChat(room, from, text) {
 
 function nextTurn(room, steps=1) {
     const n = room.players.length;
-    // Basic skip logic: if next player is disconnected, skip them too
     let nextIdx = ((room.turnIdx + room.dir * steps) % n + n) % n;
     
-    // Safety: prevent infinite loop if everyone is disconnected
     let attempts = 0;
     while (!room.players[nextIdx].connected && attempts < n) {
         nextIdx = ((nextIdx + room.dir) % n + n) % n;
         attempts++;
     }
-
     room.turnIdx = nextIdx;
     room.hasDrawn = false;
-      // Trigger bot if the next player is a CPU
-  if (room.players[room.turnIdx].isBot) {
-    runBotTurn(room);
-  }
-
+    
+    if (room.players[room.turnIdx].isBot) {
+        runBotTurn(room);
+    }
 }
 
 function handlePlay(room, playerIdx, cardIdx, chosenColor) {
@@ -157,10 +156,12 @@ function handlePlay(room, playerIdx, cardIdx, chosenColor) {
     const player = room.players[playerIdx];
     const card = player.hand[cardIdx];
     if (!card) return;
+
     if (!canPlay(card, room.activeColor, room.activeVal)) {
-        player.ws.send(JSON.stringify({ type:'error', msg:"Can't play that card!" }));
+        if (player.ws) player.ws.send(JSON.stringify({ type:'error', msg:"Can't play that card!" }));
         return;
     }
+
     player.hand.splice(cardIdx, 1);
     room.discard.push(card);
     let newColor = card.col === 'Wild' ? chosenColor : card.col;
@@ -231,10 +232,16 @@ function startGame(room) {
     room.dir = 1;
     room.hasDrawn = false;
     room.winner = null;
-    room.players.forEach(p => { p.hand = draw(room, HAND_SIZE); p.connected = true; });
+    room.players.forEach(p => { 
+        p.hand = draw(room, HAND_SIZE); 
+        p.connected = true; 
+    });
     
     let startCard;
-    do { startCard = room.deck.pop(); } while (['W','+4','S','+2','R'].includes(startCard.val));
+    do { 
+        startCard = room.deck.pop(); 
+    } while (['W','+4','S','+2','R'].includes(startCard.val));
+    
     room.discard.push(startCard);
     room.activeColor = startCard.col;
     room.activeVal = startCard.val;
@@ -242,88 +249,38 @@ function startGame(room) {
     sendChat(room, 'Server', 'Game started! ' + room.players.map(p=>p.name).join(', '));
     sendState(room);
 }
+
 function runBotTurn(room) {
     const botPlayer = room.players[room.turnIdx];
     if (!botPlayer || !botPlayer.isBot) return;
 
-    // 1. Calculate the randomized thinking time (1.00 to 2.00 seconds)
-    const thinkingTime = (Math.random() * (2.0 - 1.0) + 1.0).toFixed(2);
+    const thinkingTime = (Math.random() * (2.0 - 1.0) + 1.0);
     const delayMs = thinkingTime * 1000;
 
     setTimeout(() => {
-        // 2. Find a playable card
         let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeColor, room.activeVal));
-
         if (playIdx !== -1) {
-            // 3. Play the card
             const card = botPlayer.hand[playIdx];
             let chosenColor = room.activeColor;
             
-            // If it's a Wild, pick the color the bot has the most of
             if (card.col === 'Wild') {
                 const counts = {};
                 botPlayer.hand.forEach(c => { 
                     if (c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1; 
                 });
-                chosenColor = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Red');
+                chosenColor = Object.keys(counts).reduce((a, b) => (counts[a] || 0) > (counts[b] || 0) ? a : b, 'Red');
             }
             handlePlay(room, room.turnIdx, playIdx, chosenColor);
         } else {
-            // 4. No matches? Draw a card
             handleDraw(room, room.turnIdx);
-            
-            // Try playing the drawn card immediately (standard Uno rules)
-            let newHand = botPlayer.hand;
-            let lastCardIdx = newHand.length - 1;
-            if (canPlay(newHand[lastCardIdx], room.activeColor, room.activeVal)) {
+            let lastCardIdx = botPlayer.hand.length - 1;
+            if (canPlay(botPlayer.hand[lastCardIdx], room.activeColor, room.activeVal)) {
                 handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
             } else {
                 handlePass(room, room.turnIdx);
             }
         }
     }, delayMs);
-}
-
-// ── WebSocket connection handler ─────────────────────────────
-function runBotTurn(room) {
-  const botPlayer = room.players[room.turnIdx];
-  if (!botPlayer || !botPlayer.isBot) return;
-
-  // 1. Calculate the randomized thinking time (1.00 to 2.00 seconds)
-  const thinkingTime = (Math.random() * (2.0 - 1.0) + 1.0).toFixed(2);
-  const delayMs = thinkingTime * 1000;
-
-  setTimeout(() => {
-    // 2. Find a playable card
-    let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeColor, room.activeVal));
-
-    if (playIdx !== -1) {
-      // 3. Play the card
-      const card = botPlayer.hand[playIdx];
-      let chosenColor = room.activeColor;
-      
-      // If it's a Wild, pick the color the bot has the most of
-      if (card.col === 'Wild') {
-        const counts = {};
-        botPlayer.hand.forEach(c => { if(c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1; });
-        chosenColor = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Red');
-      }
-      
-      handlePlay(room, room.turnIdx, playIdx, chosenColor);
-    } else {
-      // 4. No matches? Draw a card
-      handleDraw(room, room.turnIdx);
-      
-      // Try playing the drawn card immediately (standard Uno rules)
-      let newHand = botPlayer.hand;
-      let lastCardIdx = newHand.length - 1;
-      if (canPlay(newHand[lastCardIdx], room.activeColor, room.activeVal)) {
-          handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
-      } else {
-          handlePass(room, room.turnIdx);
-      }
-    }
-  }, delayMs);
 }
 
 wss.on('connection', (ws) => {
@@ -333,32 +290,25 @@ wss.on('connection', (ws) => {
     ws.on('message', (raw) => {
         let msg;
         try { msg = JSON.parse(raw); } catch { return; }
-    // Handle adding/removing CPUs
-    if (msg.type === 'set_cpus') {
-      if (!myRoom || myIdx !== 0) return; // Only the host (Idx 0) can do this
-      
-      // Remove all existing bots first to reset the count
-      myRoom.players = myRoom.players.filter(p => !p.isBot);
-      
-      // Add the new number of bots requested
-      for (let i = 0; i < msg.count; i++) {
-        myRoom.players.push({ 
-          name: `CPU ${i + 1} 🤖`, 
-          isBot: true, 
-          connected: true, 
-          hand: [] 
-        });
-      }
-      
-      // Tell everyone in the lobby to refresh their player list
-      broadcast(myRoom, { 
-        type: 'lobby', 
-        players: myRoom.players.map(p => p.name), 
-        hostName: myRoom.players[0].name 
-      });
-      return;
-    }
 
+        if (msg.type === 'set_cpus') {
+            if (!myRoom || myIdx !== 0) return;
+            myRoom.players = myRoom.players.filter(p => !p.isBot);
+            for (let i = 0; i < msg.count; i++) {
+                myRoom.players.push({ 
+                    name: `CPU ${i + 1} 🤖`, 
+                    isBot: true, 
+                    connected: true, 
+                    hand: [] 
+                });
+            }
+            broadcast(myRoom, { 
+                type: 'lobby', 
+                players: myRoom.players.map(p => p.name), 
+                hostName: myRoom.players[0].name 
+            });
+            return;
+        }
         
         if (msg.type === 'join') {
             const code = (msg.code || '').toUpperCase().trim();
@@ -371,7 +321,6 @@ wss.on('connection', (ws) => {
 
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
-
             const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
             
             if (existingPlayer) {
@@ -395,7 +344,6 @@ wss.on('connection', (ws) => {
                 myIdx = room.players.length;
                 room.players.push({ id: myIdx, name, ws, hand:[], connected:true, isBot:false });
             }
-
             myRoom = room;
             ws.send(JSON.stringify({ 
                 type: 'joined', 
@@ -405,35 +353,32 @@ wss.on('connection', (ws) => {
                 isHost: myIdx === 0, 
                 playerCount: room.players.length 
             }));
-
             sendChat(room, 'Server', `${name} joined.`);
-
-            // FIX IS HERE: Added [0] to players
             broadcast(room, { 
                 type: 'lobby', 
                 players: room.players.map(p => p.name), 
                 hostName: room.players[0].name 
             });
-
             if (room.state === 'playing') sendState(room);
             return;
         }
 
         if (msg.type === 'start') {
-            if (myIdx !== 0) return;
-            startGame(room);
+            if (myIdx !== 0 || !myRoom) return; // FIXED: Added myRoom check
+            startGame(myRoom); // FIXED: Changed room to myRoom
             return;
         }
-        if (msg.type === 'play') { handlePlay(room, myIdx, msg.cardIdx, msg.chosenColor); return; }
-        if (msg.type === 'draw') { handleDraw(room, myIdx); return; }
-        if (msg.type === 'pass') { handlePass(room, myIdx); return; }
-        if (msg.type === 'chat') { sendChat(room, room.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
+
+        if (msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenColor); return; }
+        if (msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
+        if (msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
+        if (msg.type === 'chat') { sendChat(myRoom, myRoom.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
         
         if (msg.type === 'restart') {
-            if (myIdx !== 0) return;
-            room.state = 'lobby';
-            room.players.forEach(p => { p.hand = []; });
-            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
+            if (myIdx !== 0 || !myRoom) return;
+            myRoom.state = 'lobby';
+            myRoom.players.forEach(p => { p.hand = []; });
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name });
             return;
         }
     });
@@ -445,20 +390,16 @@ wss.on('connection', (ws) => {
             room.players[myIdx].connected = false;
             sendChat(room, 'Server', `${room.players[myIdx].name} disconnected.`);
             
-            // Fix: Auto-skip if it was their turn
             if (room.state === 'playing' && room.turnIdx === myIdx) {
                 sendChat(room, 'Server', `Skipping ${room.players[myIdx].name}'s turn...`);
                 nextTurn(room);
             }
 
-            // Fix: Reset room if everyone left
-            const anyoneLeft = room.players.some(p => p.connected);
+            const anyoneLeft = room.players.some(p => p.connected && !p.isBot);
             if (!anyoneLeft) {
-                console.log(`Room ${room.code} cleared (empty).`);
                 delete rooms[room.code];
                 return;
             }
-
             broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
             if (room.state === 'playing') sendState(room);
         }
