@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>UNO Multiplayer</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://w3.org viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23e63946%22/><ellipse cx=%2250%22 cy=%2250%22 rx=%2240%22 ry=%2225%22 fill=%22white%22 transform=%22rotate(-45 50 50)%22/><text x=%2250%%22 y=%2265%%22 font-family=%22Arial, sans-serif%22 font-weight=%22900%22 font-size=%2255%22 fill=%22%23e63946%22 text-anchor=%22middle%22>U</text></svg>">
+  <link rel="icon" href="<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23e63946'/%3E%3Cellipse cx='50' cy='50' rx='40' ry='25' fill='white' transform='rotate(-45 50 50)'/%3E%3Ctext x='50%25' y='65%25' font-family='Arial, sans-serif' font-weight='900' font-size='55' fill='%23e63946' text-anchor='middle'%3EU%3C/text%3E%3C/svg%3E">
 <style>
 /* ── Reset & Base ───────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -724,27 +724,36 @@ function playSound(type) {
   }
   
 function onChat(msg) {
-    const el  = document.getElementById('chat-messages');
-    const div = document.createElement('div');
-    div.className = 'chat-msg' + (msg.from === 'Server' ? ' server-msg' : '');
-    div.innerHTML = `<span class="from">${escHtml(msg.from)}:</span> ${escHtml(msg.text)}`;
-    el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
+    // 1. Find your chat container (Change 'chat-messages' to your actual ID if needed)
+    const chatBox = document.getElementById('chat-messages'); 
+    if (!chatBox) return; // Safety check
 
-    // 1. Toast for server events
-    if (msg.from === 'Server' && msg.text !== 'Game started! 🎴') {
-        toast(msg.text);
+    // 2. Create the message element
+    const div = document.createElement('div');
+    
+    // 3. Identify if it's a System Log vs Human Chat
+    const isSystem = (msg.from === "Server" || msg.from === "SERVER");
+
+    if (isSystem) {
+        div.style.color = "#aaaaaa"; // Gray for server logs
+        div.style.fontStyle = "italic";
+        div.style.fontSize = "0.9em";
+    } else {
+        div.style.color = "#ffffff"; // White for humans
     }
 
-    // 2. Notification Dot AND Sound Logic
-    const dot = document.getElementById('chat-dot');
+    // 4. Set the text
+    div.textContent = `${msg.from}: ${msg.text}`;
+    chatBox.appendChild(div);
     
-    // Check if the message is from SOMEONE ELSE and chat is closed
-    if (msg.from !== myName && !chatOpen) {
-        if (dot) dot.style.display = 'block';
-        
-        // This ensures the ding plays for BOTH server and players
-        playSound('ding'); 
+    // 5. Auto-scroll to the bottom
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // 6. Only "Ding" if it's NOT from the server
+    if (!isSystem) {
+        if (typeof chatSound !== 'undefined') {
+            chatSound.play().catch(e => {}); 
+        }
     }
 }
 
