@@ -169,7 +169,7 @@ function handlePlay(room, playerIdx, cardIdx, chosenColor) {
     room.activeColor = newColor;
     room.activeVal = newVal;
     
-    sendChat(room, player.name, `played ${card.val === 'W' ? 'Wild' : card.val === '+4' ? 'Wild +4' : card.col + ' ' + card.val}${card.col==='Wild' ? ' → chose '+newColor : ''}`);
+    sendChat(room, "Server", `${player.name} played ${card.val === 'W' ? 'Wild' : card.val === '+4' ? 'Wild +4' : card.col + ' ' + card.val}${card.col==='Wild' ? ' → chose '+newColor : ''}`);
     
     if (player.hand.length === 0) {
         room.state = 'over';
@@ -179,7 +179,7 @@ function handlePlay(room, playerIdx, cardIdx, chosenColor) {
         return;
     }
     
-    if (player.hand.length === 1) sendChat(room, player.name, 'UNO! 🟡');
+    if (player.hand.length === 1) sendChat(room, "Server", `${player.name} shouted UNO! 🟡`);
 
     const n = room.players.length;
     if (newVal === 'S') {
@@ -211,7 +211,7 @@ function handleDraw(room, playerIdx) {
     const cards = draw(room, 1);
     player.hand.push(...cards);
     room.hasDrawn = true;
-    sendChat(room, player.name, 'drew a card');
+    sendChat(room, "Server", `${player.name} drew a card`);
     sendState(room);
 }
 
@@ -219,6 +219,7 @@ function handlePass(room, playerIdx) {
     if (room.state !== 'playing') return;
     if (playerIdx !== room.turnIdx) return;
     if (!room.hasDrawn) return;
+    sendChat(room, "Server", `${room.players[playerIdx].name} passed`);
     nextTurn(room);
     sendState(room);
 }
