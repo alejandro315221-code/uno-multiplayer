@@ -45,7 +45,6 @@ function makeRoom(code) {
         activeVal: '',
         hasDrawn: false,
         winner: null,
- codex/review-uno-multiplayer-game-repository-cx5cqa
         gameType: 'crazy_eights',
         chatFilterEnabled: false,
         hostCanClearChat: false,
