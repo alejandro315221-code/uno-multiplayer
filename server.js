@@ -45,8 +45,15 @@ function makeRoom(code) {
         activeVal: '',
         hasDrawn: false,
         winner: null,
+ codex/review-uno-multiplayer-game-repository-cx5cqa
+        gameType: 'crazy_eights',
         chatFilterEnabled: false,
         hostCanClearChat: false,
+        gameplayMusicEnabled: false,
+
+        chatFilterEnabled: false,
+        hostCanClearChat: false,
+ main
     };
 }
 
@@ -128,6 +135,7 @@ function sendState(room) {
             hasDrawn: room.hasDrawn,
             state: room.state,
             winner: room.winner,
+            gameplayMusicEnabled: room.gameplayMusicEnabled,
         }));
     });
 }
@@ -321,7 +329,13 @@ wss.on('connection', (ws) => {
                 players: myRoom.players.map(p => p.name), 
                 hostName: myRoom.players[0].name,
                 chatFilterEnabled: myRoom.chatFilterEnabled,
+codex/review-uno-multiplayer-game-repository-cx5cqa
+                hostCanClearChat: myRoom.hostCanClearChat,
+                gameType: myRoom.gameType,
+                gameplayMusicEnabled: myRoom.gameplayMusicEnabled
+
                 hostCanClearChat: myRoom.hostCanClearChat
+ main
             });
             return;
         }
@@ -337,6 +351,7 @@ wss.on('connection', (ws) => {
 
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
+            if (room.players.length === 0 && msg.gameType) room.gameType = msg.gameType;
             const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
             
             if (existingPlayer) {
@@ -367,7 +382,8 @@ wss.on('connection', (ws) => {
                 name, 
                 yourIdx: myIdx, 
                 isHost: myIdx === 0, 
-                playerCount: room.players.length 
+                playerCount: room.players.length,
+                gameType: room.gameType
             }));
             sendChat(room, 'Server', `${name} joined.`);
             broadcast(room, { 
@@ -375,7 +391,13 @@ wss.on('connection', (ws) => {
                 players: room.players.map(p => p.name), 
                 hostName: room.players[0].name,
                 chatFilterEnabled: room.chatFilterEnabled,
+ codex/review-uno-multiplayer-game-repository-cx5cqa
+                hostCanClearChat: room.hostCanClearChat,
+                gameType: room.gameType,
+                gameplayMusicEnabled: room.gameplayMusicEnabled
+
                 hostCanClearChat: room.hostCanClearChat
+               main
             });
             if (room.state === 'playing') sendState(room);
             return;
@@ -385,14 +407,24 @@ wss.on('connection', (ws) => {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
             myRoom.hostCanClearChat = !!msg.hostCanClearChat;
+ codex/review-uno-multiplayer-game-repository-cx5cqa
+            myRoom.gameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}.`);
+
             broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
             sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}.`);
+ main
             return;
         }
 
         if (msg.type === 'start') {
-            if (myIdx !== 0 || !myRoom) return; // FIXED: Added myRoom check
-            startGame(myRoom); // FIXED: Changed room to myRoom
+            if (myIdx !== 0 || !myRoom) return;
+            if (myRoom.gameType !== 'crazy_eights') {
+                ws.send(JSON.stringify({ type:'error', msg:`${myRoom.gameType.replaceAll('_',' ')} is coming soon. Please pick Crazy Eights for now.` }));
+                return;
+            }
+            startGame(myRoom);
             return;
         }
 
@@ -411,7 +443,11 @@ wss.on('connection', (ws) => {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
             myRoom.players.forEach(p => { p.hand = []; });
+ codex/review-uno-multiplayer-game-repository-cx5cqa
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
+
             broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
+ main
             return;
         }
     });
@@ -433,7 +469,7 @@ wss.on('connection', (ws) => {
                 delete rooms[room.code];
                 return;
             }
-            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name, chatFilterEnabled: room.chatFilterEnabled, hostCanClearChat: room.hostCanClearChat });
+            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name, chatFilterEnabled: room.chatFilterEnabled, hostCanClearChat: room.hostCanClearChat, gameType: room.gameType, gameplayMusicEnabled: room.gameplayMusicEnabled });
             if (room.state === 'playing') sendState(room);
         }
     });
