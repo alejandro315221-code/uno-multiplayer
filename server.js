@@ -45,10 +45,15 @@ function makeRoom(code) {
         activeVal: '',
         hasDrawn: false,
         winner: null,
+ codex/review-uno-multiplayer-game-repository-cx5cqa
         gameType: 'crazy_eights',
         chatFilterEnabled: false,
         hostCanClearChat: false,
         gameplayMusicEnabled: false,
+
+        chatFilterEnabled: false,
+        hostCanClearChat: false,
+ main
     };
 }
 
@@ -324,9 +329,13 @@ wss.on('connection', (ws) => {
                 players: myRoom.players.map(p => p.name), 
                 hostName: myRoom.players[0].name,
                 chatFilterEnabled: myRoom.chatFilterEnabled,
+codex/review-uno-multiplayer-game-repository-cx5cqa
                 hostCanClearChat: myRoom.hostCanClearChat,
                 gameType: myRoom.gameType,
                 gameplayMusicEnabled: myRoom.gameplayMusicEnabled
+
+                hostCanClearChat: myRoom.hostCanClearChat
+ main
             });
             return;
         }
@@ -382,9 +391,13 @@ wss.on('connection', (ws) => {
                 players: room.players.map(p => p.name), 
                 hostName: room.players[0].name,
                 chatFilterEnabled: room.chatFilterEnabled,
+ codex/review-uno-multiplayer-game-repository-cx5cqa
                 hostCanClearChat: room.hostCanClearChat,
                 gameType: room.gameType,
                 gameplayMusicEnabled: room.gameplayMusicEnabled
+
+                hostCanClearChat: room.hostCanClearChat
+               main
             });
             if (room.state === 'playing') sendState(room);
             return;
@@ -394,9 +407,14 @@ wss.on('connection', (ws) => {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
             myRoom.hostCanClearChat = !!msg.hostCanClearChat;
+ codex/review-uno-multiplayer-game-repository-cx5cqa
             myRoom.gameplayMusicEnabled = !!msg.gameplayMusicEnabled;
             broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
             sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}.`);
+
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}.`);
+ main
             return;
         }
 
@@ -425,7 +443,11 @@ wss.on('connection', (ws) => {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
             myRoom.players.forEach(p => { p.hand = []; });
+ codex/review-uno-multiplayer-game-repository-cx5cqa
             broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
+
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
+ main
             return;
         }
     });
