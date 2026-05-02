@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const PROFANITY_LIST = require('./profanity-list');
 const PORT = process.env.PORT || 3000;
 
 // ── HTTP server: serve uno.html + assets ─────────────────────
@@ -44,6 +45,8 @@ function makeRoom(code) {
         activeVal: '',
         hasDrawn: false,
         winner: null,
+        chatFilterEnabled: false,
+        hostCanClearChat: false,
     };
 }
 
@@ -129,8 +132,18 @@ function sendState(room) {
     });
 }
 
+function filterChatText(text) {
+    let safe = String(text || '');
+    for (const word of PROFANITY_LIST) {
+        const re = new RegExp(`\\b${word}\\b`, 'gi');
+        safe = safe.replace(re, (m) => '*'.repeat(m.length));
+    }
+    return safe;
+}
+
 function sendChat(room, from, text) {
-    broadcast(room, { type:'chat', from, text });
+    const safeText = room.chatFilterEnabled && from !== 'Server' ? filterChatText(text) : text;
+    broadcast(room, { type:'chat', from, text: safeText });
 }
 
 function nextTurn(room, steps=1) {
@@ -306,7 +319,9 @@ wss.on('connection', (ws) => {
             broadcast(myRoom, { 
                 type: 'lobby', 
                 players: myRoom.players.map(p => p.name), 
-                hostName: myRoom.players[0].name 
+                hostName: myRoom.players[0].name,
+                chatFilterEnabled: myRoom.chatFilterEnabled,
+                hostCanClearChat: myRoom.hostCanClearChat
             });
             return;
         }
@@ -358,9 +373,20 @@ wss.on('connection', (ws) => {
             broadcast(room, { 
                 type: 'lobby', 
                 players: room.players.map(p => p.name), 
-                hostName: room.players[0].name 
+                hostName: room.players[0].name,
+                chatFilterEnabled: room.chatFilterEnabled,
+                hostCanClearChat: room.hostCanClearChat
             });
             if (room.state === 'playing') sendState(room);
+            return;
+        }
+
+        if (msg.type === 'set_room_options') {
+            if (myIdx !== 0 || !myRoom) return;
+            myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
+            myRoom.hostCanClearChat = !!msg.hostCanClearChat;
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}.`);
             return;
         }
 
@@ -374,12 +400,18 @@ wss.on('connection', (ws) => {
         if (msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
         if (msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
         if (msg.type === 'chat') { sendChat(myRoom, myRoom.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
+        if (msg.type === 'clear_chat') {
+            if (!myRoom || myIdx !== 0 || !myRoom.hostCanClearChat) return;
+            broadcast(myRoom, { type:'chat_cleared', by: myRoom.players[myIdx].name });
+            sendChat(myRoom, 'Server', `${myRoom.players[myIdx].name} cleared chat.`);
+            return;
+        }
         
         if (msg.type === 'restart') {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
             myRoom.players.forEach(p => { p.hand = []; });
-            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name });
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat });
             return;
         }
     });
@@ -401,7 +433,7 @@ wss.on('connection', (ws) => {
                 delete rooms[room.code];
                 return;
             }
-            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
+            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name, chatFilterEnabled: room.chatFilterEnabled, hostCanClearChat: room.hostCanClearChat });
             if (room.state === 'playing') sendState(room);
         }
     });
