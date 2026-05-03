@@ -151,9 +151,6 @@ function ceSendState(room) {
     }));
   });
 }
-const cur = room.players[room.ce.turnIdx];
-if (cur && cur.isBot) runCpuTurn(room);
-
 /* ---------------- Bingo ---------------- */
 function bingoRangeSet() { return new Set(Array.from({ length: 75 }, (_, i) => i + 1)); }
 function randomBingoCard() {
@@ -293,7 +290,9 @@ function startGame(room) {
     room.ce.activeRank = first.rank;
     ceSendState(room);
     sendChat(room, 'Server', 'Crazy Eights started.');
-    return;
+    const cur = room.players[room.ce.turnIdx];
+  if (cur && cur.isBot) runCpuTurn(room);
+  return;
   }
 
   if (room.gameType === 'bingo') {
