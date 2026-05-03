@@ -6,6 +6,7 @@ const PROFANITY_LIST = require('./profanity-list');
 
 const PORT = process.env.PORT || 3000;
 
+// ── HTTP server: serve uno.html + assets ─────────────────────
 const httpServer = http.createServer((req, res) => {
   const filePath = path.join(__dirname, req.url === '/' ? 'uno.html' : req.url);
   fs.readFile(filePath, (err, data) => {
@@ -32,24 +33,26 @@ const httpServer = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server: httpServer });
 
-const COLORS = ['Red', 'Green', 'Blue', 'Yellow'];
-const VALUES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'S', 'R', '+2'];
+// ── Crazy Eights constants ───────────────────────────────────
+const SUITS = ['Spades', 'Hearts', 'Diamonds', 'Clubs'];
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 
+// ── State ────────────────────────────────────────────────────
 const rooms = {};
 
 function makeRoom(code) {
   return {
     code,
-    players: [], // { id, name, ws, hand, connected, isBot }
+    players: [], // { id, name, ws, hand:[], connected:true, isBot:false }
     state: 'lobby',
     deck: [],
     discard: [],
     turnIdx: 0,
-    dir: 1,
-    activeColor: '',
-    activeVal: '',
+    dir: 1, // kept for compatibility, not used by CE rules
+    activeSuit: '',
+    activeRank: '',
     hasDrawn: false,
     winner: null,
     gameType: 'crazy_eights',
@@ -61,15 +64,10 @@ function makeRoom(code) {
 
 function buildDeck() {
   const deck = [];
-  for (const col of COLORS) {
-    for (const val of VALUES) {
-      deck.push({ col, val });
-      if (val !== '0') deck.push({ col, val });
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({ suit, rank });
     }
-  }
-  for (let i = 0; i < 4; i++) {
-    deck.push({ col: 'Wild', val: 'W' });
-    deck.push({ col: 'Wild', val: '+4' });
   }
   return shuffle(deck);
 }
@@ -96,13 +94,16 @@ function draw(room, n = 1) {
   return cards;
 }
 
-function canPlay(card, activeColor, activeVal) {
-  return card.col === 'Wild' || card.col === activeColor || card.val === activeVal;
+function canPlay(card, activeSuit, activeRank) {
+  // Crazy Eights: 8 is wild, otherwise match suit or rank
+  return card.rank === '8' || card.suit === activeSuit || card.rank === activeRank;
 }
 
 function broadcast(room, msg) {
   room.players.forEach((p) => {
-    if (p.ws && p.ws.readyState === 1) p.ws.send(JSON.stringify(msg));
+    if (p.ws && p.ws.readyState === 1) {
+      p.ws.send(JSON.stringify(msg));
+    }
   });
 }
 
@@ -124,16 +125,16 @@ function sendState(room) {
       hand: p.hand,
       others,
       topCard: top || null,
-      activeColor: room.activeColor,
-      activeVal: room.activeVal,
+      activeSuit: room.activeSuit,
+      activeRank: room.activeRank,
       turnIdx: room.turnIdx,
       yourIdx: idx,
       deckCount: room.deck.length,
-      dir: room.dir,
       hasDrawn: room.hasDrawn,
       state: room.state,
       winner: room.winner,
       gameplayMusicEnabled: room.gameplayMusicEnabled,
+      gameType: room.gameType,
     }));
   });
 }
@@ -148,19 +149,17 @@ function filterChatText(text) {
 }
 
 function sendChat(room, from, text) {
-  const safeText = room.chatFilterEnabled && from !== 'Server'
-    ? filterChatText(text)
-    : text;
+  const safeText = room.chatFilterEnabled && from !== 'Server' ? filterChatText(text) : text;
   broadcast(room, { type: 'chat', from, text: safeText });
 }
 
 function nextTurn(room, steps = 1) {
   const n = room.players.length;
-  let nextIdx = ((room.turnIdx + room.dir * steps) % n + n) % n;
+  let nextIdx = ((room.turnIdx + steps) % n + n) % n;
 
   let attempts = 0;
   while (!room.players[nextIdx].connected && attempts < n) {
-    nextIdx = ((nextIdx + room.dir) % n + n) % n;
+    nextIdx = ((nextIdx + 1) % n + n) % n;
     attempts++;
   }
 
@@ -170,36 +169,37 @@ function nextTurn(room, steps = 1) {
   if (room.players[room.turnIdx].isBot) runBotTurn(room);
 }
 
-function handlePlay(room, playerIdx, cardIdx, chosenColor) {
+function handlePlay(room, playerIdx, cardIdx, chosenSuit) {
   if (!room || room.state !== 'playing') return;
   if (playerIdx !== room.turnIdx) return;
+
   const player = room.players[playerIdx];
   if (!player) return;
 
   const card = player.hand[cardIdx];
   if (!card) return;
 
-  if (!canPlay(card, room.activeColor, room.activeVal)) {
+  if (!canPlay(card, room.activeSuit, room.activeRank)) {
     if (player.ws) player.ws.send(JSON.stringify({ type: 'error', msg: "Can't play that card!" }));
+    return;
+  }
+
+  // For 8, suit choice is required
+  if (card.rank === '8' && !chosenSuit) {
+    if (player.ws) player.ws.send(JSON.stringify({ type: 'error', msg: 'Choose a suit for 8.' }));
     return;
   }
 
   player.hand.splice(cardIdx, 1);
   room.discard.push(card);
 
-  room.activeColor = card.col === 'Wild' ? chosenColor : card.col;
-  room.activeVal = card.val;
+  room.activeRank = card.rank;
+  room.activeSuit = card.rank === '8' ? chosenSuit : card.suit;
 
   sendChat(
     room,
     'Server',
-    `${player.name} played ${
-      card.val === 'W'
-        ? 'Wild'
-        : card.val === '+4'
-          ? 'Wild +4'
-          : `${card.col} ${card.val}`
-    }${card.col === 'Wild' ? ` → chose ${room.activeColor}` : ''}`
+    `${player.name} played ${card.rank} of ${card.suit}${card.rank === '8' ? ` → chose ${room.activeSuit}` : ''}`
   );
 
   if (player.hand.length === 0) {
@@ -210,28 +210,11 @@ function handlePlay(room, playerIdx, cardIdx, chosenColor) {
     return;
   }
 
-  if (player.hand.length === 1) sendChat(room, 'Server', `${player.name} shouted UNO! 🟡`);
-
-  const n = room.players.length;
-  if (room.activeVal === 'S') {
-    nextTurn(room, 2);
-  } else if (room.activeVal === 'R') {
-    room.dir *= -1;
-    nextTurn(room, n > 2 ? 1 : 2);
-  } else if (room.activeVal === '+2') {
-    const nextP = ((room.turnIdx + room.dir) % n + n) % n;
-    room.players[nextP].hand.push(...draw(room, 2));
-    sendChat(room, 'Server', `${room.players[nextP].name} draws 2!`);
-    nextTurn(room, 2);
-  } else if (room.activeVal === '+4') {
-    const nextP = ((room.turnIdx + room.dir) % n + n) % n;
-    room.players[nextP].hand.push(...draw(room, 4));
-    sendChat(room, 'Server', `${room.players[nextP].name} draws 4!`);
-    nextTurn(room, 2);
-  } else {
-    nextTurn(room);
+  if (player.hand.length === 1) {
+    sendChat(room, 'Server', `${player.name} has 1 card left!`);
   }
 
+  nextTurn(room);
   sendState(room);
 }
 
@@ -267,7 +250,6 @@ function startGame(room) {
   room.deck = buildDeck();
   room.discard = [];
   room.turnIdx = 0;
-  room.dir = 1;
   room.hasDrawn = false;
   room.winner = null;
 
@@ -276,16 +258,12 @@ function startGame(room) {
     p.connected = true;
   });
 
-  let startCard;
-  do {
-    startCard = room.deck.pop();
-  } while (['W', '+4', 'S', '+2', 'R'].includes(startCard.val));
-
+  const startCard = room.deck.pop();
   room.discard.push(startCard);
-  room.activeColor = startCard.col;
-  room.activeVal = startCard.val;
+  room.activeSuit = startCard.suit;
+  room.activeRank = startCard.rank;
 
-  sendChat(room, 'Server', `Game started! ${room.players.map((p) => p.name).join(', ')}`);
+  sendChat(room, 'Server', 'Game started! ' + room.players.map((p) => p.name).join(', '));
   sendState(room);
 }
 
@@ -296,27 +274,27 @@ function runBotTurn(room) {
   const delayMs = (Math.random() * (2.0 - 1.0) + 1.0) * 1000;
 
   setTimeout(() => {
-    let playIdx = botPlayer.hand.findIndex((c) => canPlay(c, room.activeColor, room.activeVal));
-    if (playIdx !== -1) {
-      const card = botPlayer.hand[playIdx];
-      let chosenColor = room.activeColor;
+    const playableIdx = botPlayer.hand.findIndex((c) => canPlay(c, room.activeSuit, room.activeRank));
+    if (playableIdx !== -1) {
+      const card = botPlayer.hand[playableIdx];
 
-      if (card.col === 'Wild') {
-        const counts = {};
-        botPlayer.hand.forEach((c) => {
-          if (c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1;
-        });
-        chosenColor = Object.keys(counts).reduce(
-          (a, b) => ((counts[a] || 0) > (counts[b] || 0) ? a : b),
-          'Red'
-        );
+      let chosenSuit = card.suit;
+      if (card.rank === '8') {
+        // pick most common suit in hand (excluding the 8 itself is optional; simple is fine)
+        const counts = { Spades: 0, Hearts: 0, Diamonds: 0, Clubs: 0 };
+        botPlayer.hand.forEach((c) => { if (counts[c.suit] !== undefined) counts[c.suit]++; });
+        chosenSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b), 'Spades');
       }
-      handlePlay(room, room.turnIdx, playIdx, chosenColor);
+
+      handlePlay(room, room.turnIdx, playableIdx, chosenSuit);
     } else {
       handleDraw(room, room.turnIdx);
       const lastCardIdx = botPlayer.hand.length - 1;
-      if (canPlay(botPlayer.hand[lastCardIdx], room.activeColor, room.activeVal)) {
-        handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
+      const drawnCard = botPlayer.hand[lastCardIdx];
+
+      if (drawnCard && canPlay(drawnCard, room.activeSuit, room.activeRank)) {
+        const chosenSuit = drawnCard.rank === '8' ? drawnCard.suit : drawnCard.suit;
+        handlePlay(room, room.turnIdx, lastCardIdx, chosenSuit);
       } else {
         handlePass(room, room.turnIdx);
       }
@@ -330,11 +308,7 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (raw) => {
     let msg;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
+    try { msg = JSON.parse(raw); } catch { return; }
 
     if (msg.type === 'set_cpus') {
       if (!myRoom || myIdx !== 0) return;
@@ -376,14 +350,16 @@ wss.on('connection', (ws) => {
       if (room.players.length === 0 && msg.gameType) room.gameType = msg.gameType;
 
       const existingPlayer = room.players.find((p) => p.name.toLowerCase() === name.toLowerCase());
+
       if (existingPlayer) {
         if (existingPlayer.connected) {
           ws.send(JSON.stringify({ type: 'error', msg: 'Name taken!' }));
           return;
+        } else {
+          existingPlayer.ws = ws;
+          existingPlayer.connected = true;
+          myIdx = room.players.indexOf(existingPlayer);
         }
-        existingPlayer.ws = ws;
-        existingPlayer.connected = true;
-        myIdx = room.players.indexOf(existingPlayer);
       } else {
         if (room.state !== 'lobby') {
           ws.send(JSON.stringify({ type: 'error', msg: 'Game in progress.' }));
@@ -394,14 +370,7 @@ wss.on('connection', (ws) => {
           return;
         }
         myIdx = room.players.length;
-        room.players.push({
-          id: myIdx,
-          name,
-          ws,
-          hand: [],
-          connected: true,
-          isBot: false,
-        });
+        room.players.push({ id: myIdx, name, ws, hand: [], connected: true, isBot: false });
       }
 
       myRoom = room;
@@ -472,7 +441,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenColor); return; }
+    if (msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenColor || msg.chosenSuit); return; }
     if (msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
     if (msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
     if (msg.type === 'chat') {
@@ -501,42 +470,44 @@ wss.on('connection', (ws) => {
         gameType: myRoom.gameType,
         gameplayMusicEnabled: myRoom.gameplayMusicEnabled,
       });
+      return;
     }
   });
 
   ws.on('close', () => {
     if (!myRoom || myIdx < 0) return;
     const room = myRoom;
-    if (!room.players[myIdx]) return;
 
-    room.players[myIdx].connected = false;
-    sendChat(room, 'Server', `${room.players[myIdx].name} disconnected.`);
+    if (room.players[myIdx]) {
+      room.players[myIdx].connected = false;
+      sendChat(room, 'Server', `${room.players[myIdx].name} disconnected.`);
 
-    if (room.state === 'playing' && room.turnIdx === myIdx) {
-      sendChat(room, 'Server', `Skipping ${room.players[myIdx].name}'s turn...`);
-      nextTurn(room);
+      if (room.state === 'playing' && room.turnIdx === myIdx) {
+        sendChat(room, 'Server', `Skipping ${room.players[myIdx].name}'s turn...`);
+        nextTurn(room);
+      }
+
+      const anyoneLeft = room.players.some((p) => p.connected && !p.isBot);
+      if (!anyoneLeft) {
+        delete rooms[room.code];
+        return;
+      }
+
+      broadcast(room, {
+        type: 'lobby',
+        players: room.players.map((p) => p.name),
+        hostName: room.players[0].name,
+        chatFilterEnabled: room.chatFilterEnabled,
+        hostCanClearChat: room.hostCanClearChat,
+        gameType: room.gameType,
+        gameplayMusicEnabled: room.gameplayMusicEnabled,
+      });
+
+      if (room.state === 'playing') sendState(room);
     }
-
-    const anyoneLeft = room.players.some((p) => p.connected && !p.isBot);
-    if (!anyoneLeft) {
-      delete rooms[room.code];
-      return;
-    }
-
-    broadcast(room, {
-      type: 'lobby',
-      players: room.players.map((p) => p.name),
-      hostName: room.players[0].name,
-      chatFilterEnabled: room.chatFilterEnabled,
-      hostCanClearChat: room.hostCanClearChat,
-      gameType: room.gameType,
-      gameplayMusicEnabled: room.gameplayMusicEnabled,
-    });
-
-    if (room.state === 'playing') sendState(room);
   });
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`UNO Server running on port ${PORT}`);
+  console.log(`Crazy Eights Server running on port ${PORT}`);
 });
