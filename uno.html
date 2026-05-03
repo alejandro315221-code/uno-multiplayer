@@ -1,192 +1,542 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Tabletop Online</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.svg" />
 <style>
-body{font-family:system-ui;background:#111;color:#eee;margin:0}
-.wrap{max-width:900px;margin:0 auto;padding:16px}
-.card{background:#1d1d1d;border:1px solid #333;border-radius:12px;padding:12px;margin-bottom:12px}
-input,select,button{padding:8px;border-radius:8px;border:1px solid #444;background:#222;color:#eee}
-button{cursor:pointer}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#game,#lobby{display:none}
-#chatBox{height:160px;overflow:auto;background:#0f0f0f;padding:8px;border-radius:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
+
+/* JOIN */
+#screen-join{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1b3a5c,#0d1b2a)}
+.join-box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:34px 40px;width:390px;max-width:94vw;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.brand{font-size:2.8rem;font-weight:900;line-height:1}
+.brand .tt{font-family:'Trebuchet MS','Arial Black',sans-serif;color:#fff}
+.brand .on{font-family:Georgia,serif;color:#4cc9f0}
+.join-box p{color:#8fa9c5;margin:10px 0 20px;font-size:.92rem}
+.field{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #415a77;background:#1b2d42;color:#e0e1dd;font-size:1rem;margin-bottom:10px;outline:none}
+.field:focus{border-color:#4cc9f0}
+.btn-primary{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;font-size:1rem;font-weight:700;background:linear-gradient(135deg,#ff595e,#e63946);color:#fff}
+.btn-secondary{width:100%;padding:10px;border-radius:10px;border:1px solid #415a77;cursor:pointer;font-size:.92rem;font-weight:600;background:transparent;color:#8fa9c5;margin-top:8px}
+.btn-secondary:hover{background:#415a77;color:#e0e1dd}
+.join-err{color:#ff7b7b;font-size:.85rem;min-height:1.1em;margin-top:8px}
+
+/* LOBBY */
+#screen-lobby{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1b3a5c,#0d1b2a)}
+.lobby-box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:28px 34px;width:560px;max-width:95vw;text-align:center}
+.room-code{font-size:2.2rem;font-weight:900;letter-spacing:5px;color:#4cc9f0;margin:8px 0}
+.lobby-players{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+.lobby-players span{background:#1b2d42;border:1px solid #415a77;border-radius:8px;padding:6px 12px;font-size:.88rem}
+.host-options{margin-top:12px;text-align:left;background:rgba(0,0,0,.22);border:1px solid #415a77;border-radius:10px;padding:10px}
+.host-options label{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.9rem}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-start{padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-size:1rem;font-weight:700;background:linear-gradient(135deg,#8ac926,#4caf50);color:#0d1b2a}
+.btn-start:disabled{opacity:.45;cursor:not-allowed}
+.waiting-hint{color:#8fa9c5;font-size:.85rem;margin-top:8px}
+
+/* GAME */
+#screen-game{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden}
+#table{flex:1;position:relative;perspective:1200px;background:radial-gradient(ellipse at 50% 30%,#1a4d2e,#0d2218);overflow:hidden}
+#opponents,#center{transform:rotateX(24deg);transform-origin:center bottom}
+#opponents{position:absolute;top:6px;left:10px;right:10px;display:flex;justify-content:center;align-items:flex-start;gap:6px;flex-wrap:wrap;z-index:10}
+.opponent{display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;min-width:76px}
+.opponent.active{border-color:#4cc9f0;box-shadow:0 0 8px rgba(76,201,240,.4)}
+.opp-name{font-size:.65rem;font-weight:600;max-width:72px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp-count{font-size:.64rem;color:#fca311;font-weight:800}
+
+#center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotateX(30deg);display:flex;align-items:center;gap:28px}
+.pile{text-align:center}
+.card-back{width:74px;height:104px;border-radius:10px;background:linear-gradient(135deg,#1a2d8a,#0f1f6b);border:3px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:1.35rem;color:#fff;font-weight:900;box-shadow:0 4px 16px rgba(0,0,0,.6);cursor:pointer}
+#top-card{width:80px;height:112px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#fff,#ddd);border:3px solid rgba(255,255,255,.45);box-shadow:0 6px 20px rgba(0,0,0,.7);font-weight:900;color:#111}
+#top-corner{font-size:.66rem;align-self:flex-start;padding-left:6px}
+#top-card-val{font-size:1.8rem}
+.label{font-size:.72rem;color:#90a8c3;margin-top:6px}
+
+#status{position:absolute;top:56%;left:50%;transform:translateX(-50%);text-align:center}
+#turn-label{font-size:.84rem;padding:5px 12px;border-radius:20px;background:rgba(0,0,0,.56)}
+#active-suit-label{margin-top:6px;font-size:.76rem;color:#c4d4e6}
+
+#hand-area{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);padding:10px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#hand{display:flex;justify-content:center;align-items:flex-end;flex-wrap:wrap;gap:6px;max-width:100%}
+.card{width:64px;height:92px;border-radius:9px;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#fff,#ddd);transition:transform .2s,box-shadow .2s;box-shadow:-1px 1px 0 #ccc,-2px 2px 0 #bbb,-3px 10px 15px rgba(0,0,0,.5);font-weight:900;flex-shrink:0}
+.card:hover{transform:translateY(-18px) rotateX(-10deg) rotateY(5deg) scale(1.09);box-shadow:-10px 25px 50px rgba(0,0,0,.6)}
+.card.unplayable{opacity:.45;cursor:not-allowed}
+.card.unplayable:hover{transform:none}
+.corner{position:absolute;font-size:.55rem;font-weight:700}
+.corner.tl{top:4px;left:5px}
+.corner.br{bottom:4px;right:5px;transform:rotate(180deg)}
+.face{font-size:1.45rem;font-weight:900}
+.actions{display:flex;gap:8px}
+.btn-action{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.86rem;font-weight:700}
+.btn-draw{background:#fca311;color:#0d1b2a}
+.btn-pass{background:#415a77;color:#e0e1dd}
+.btn-action:disabled{opacity:.4;cursor:not-allowed}
+
+/* Wild suit chooser */
+#wild-chooser{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:60}
+.wild-box{background:#1b2d42;border:2px solid #415a77;border-radius:16px;padding:26px;text-align:center}
+.wild-box h3{margin-bottom:16px}
+.wild-suits{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.wild-btn{width:70px;height:70px;border-radius:12px;border:2px solid rgba(255,255,255,.35);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:2rem;background:#fff}
+
+/* Chat */
+#chat-toggle{position:fixed;right:10px;top:10px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(13,27,42,.9);color:#fff;cursor:pointer}
+#chat-panel{position:fixed;right:0;top:0;bottom:0;width:260px;background:rgba(13,27,42,.96);border-left:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;z-index:80;transform:translateX(100%);transition:transform .25s}
+#chat-panel.open{transform:translateX(0)}
+.chat-head{padding:10px;border-bottom:1px solid rgba(255,255,255,.12);font-weight:700;color:#4cc9f0;display:flex;justify-content:space-between;align-items:center}
+#chat-msgs{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:4px;font-size:.8rem}
+#chat-row{display:flex;gap:6px;padding:8px}
+#chat-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid #415a77;background:#0d1b2a;color:#e0e1dd}
+#chat-send{padding:7px 12px;border-radius:8px;border:none;cursor:pointer;background:#4cc9f0;color:#0d1b2a;font-weight:700}
+#chat-clear-host{display:none}
+
+/* Over + toast */
+#screen-over{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:95}
+.over-box{background:#1b2d42;border:2px solid #415a77;border-radius:20px;padding:36px 48px;text-align:center}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#fca311;color:#0d1b2a;padding:8px 18px;border-radius:20px;font-size:.84rem;font-weight:700;opacity:0;transition:opacity .25s;z-index:100}
+#toast.show{opacity:1}
+
+@media(max-width:500px){
+  .card{width:52px;height:76px}
+  #top-card{width:66px;height:95px}
+  .card-back{width:62px;height:90px}
+  #chat-panel{width:210px}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div id="join" class="card">
-    <h2><span style="font-family:'Trebuchet MS',sans-serif">Tabletop</span> <span style="font-family:Georgia,serif;color:#4cc9f0">Online</span></h2>
-    <div class="row">
-      <input id="name" placeholder="Your name"/>
-      <input id="room" placeholder="Room code"/>
-      <select id="gameType">
-        <option value="crazy_eights">Crazy Eights</option>
-        <option value="bingo">Bingo</option>
-        <option value="blackjack">Blackjack</option>
-      </select>
-      <button onclick="joinRoom()">Join</button>
+
+<!-- JOIN -->
+<div id="screen-join">
+  <div class="join-box">
+    <div class="brand"><span class="tt">Tabletop</span> <span class="on">Online</span></div>
+    <p>Crazy Eights • Bingo • Blackjack</p>
+    <input id="inp-name" class="field" placeholder="Your name" maxlength="20" />
+    <input id="inp-room" class="field" placeholder="Room code (e.g. PIZZA)" maxlength="12" />
+    <select id="inp-game" class="field">
+      <option value="crazy_eights">Crazy Eights</option>
+      <option value="bingo">Bingo</option>
+      <option value="blackjack">Blackjack</option>
+    </select>
+    <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
+    <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room</button>
+    <div id="join-err" class="join-err"></div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="screen-lobby">
+  <div class="lobby-box">
+    <h2>Room <span id="lby-code" style="color:#4cc9f0"></span></h2>
+    <div>Game: <strong id="lby-game">Crazy Eights</strong></div>
+    <div id="lby-code-big" class="room-code"></div>
+    <div id="lby-players" class="lobby-players"></div>
+
+    <div class="host-options">
+      <label><input id="opt-chat-filter" type="checkbox"> Enable chat filter</label>
+      <label><input id="opt-host-clear" type="checkbox"> Allow host clear chat</label>
+      <label><input id="opt-music" type="checkbox"> Enable gameplay music</label>
+      <label><input id="opt-bj-bet" type="checkbox" checked> Blackjack betting (chips start 500)</label>
+      <label><input id="opt-bingo-auto" type="checkbox" checked> Bingo auto draw</label>
+      <div class="row"><span>Bingo interval (sec)</span><input id="opt-bingo-sec" type="number" min="3" value="10" style="width:80px"></div>
     </div>
-    <div id="err" style="color:#ff6b6b"></div>
+
+    <div class="row" style="justify-content:center;margin-top:12px">
+      <button id="btn-start" class="btn-start" onclick="sendStart()" disabled>Start Game</button>
+      <button class="btn-secondary" style="width:auto;padding:11px 14px" onclick="sendRoomOptions()">Save Options</button>
+    </div>
+    <div id="lby-hint" class="waiting-hint">Waiting for the host to start…</div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="screen-game">
+  <button id="chat-toggle" onclick="toggleChat()">💬</button>
+
+  <div id="chat-panel">
+    <div class="chat-head">
+      Room Chat
+      <button id="chat-clear-host" class="btn-secondary" style="width:auto;padding:4px 8px;font-size:.75rem" onclick="clearChat()">Clear</button>
+    </div>
+    <div id="chat-msgs"></div>
+    <div id="chat-row">
+      <input id="chat-input" placeholder="Message..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button id="chat-send" onclick="sendChat()">➤</button>
+    </div>
   </div>
 
-  <div id="lobby" class="card">
-    <h3>Lobby <span id="roomLabel"></span></h3>
-    <div id="players"></div>
-    <div class="row">
-      <label><input type="checkbox" id="optChatFilter"> Chat filter</label>
-      <label><input type="checkbox" id="optHostClear"> Host clear chat</label>
-      <label><input type="checkbox" id="optMusic"> Gameplay music</label>
-      <label><input type="checkbox" id="optBjBet" checked> BJ betting enabled</label>
-      <label><input type="checkbox" id="optBingoAuto" checked> Bingo auto draw</label>
-      <label>Interval <input id="optBingoSec" type="number" min="3" value="10" style="width:70px">s</label>
-      <button onclick="saveOptions()">Save Options</button>
-      <button onclick="startGame()">Start</button>
-    </div>
-  </div>
+  <div id="table">
+    <div id="opponents"></div>
 
-  <div id="game" class="card">
-    <h3 id="modeTitle">Game</h3>
-    <div id="state"></div>
-
-    <div id="ceActions" class="row" style="display:none">
-      <button onclick="send({type:'draw'})">Draw</button>
-      <button onclick="send({type:'pass'})">Pass</button>
+    <div id="center">
+      <div class="pile">
+        <div class="card-back" onclick="sendDraw()">🂠</div>
+        <div class="label">Draw <span id="deck-count">0</span></div>
+      </div>
+      <div class="pile">
+        <div id="top-card">
+          <div id="top-corner">—</div>
+          <div id="top-card-val">—</div>
+        </div>
+        <div id="active-suit-label">—</div>
+      </div>
     </div>
 
-    <div id="bingoActions" class="row" style="display:none">
-      <button onclick="send({type:'bingo_draw_next'})">Host Draw Next</button>
-      <button onclick="send({type:'bingo_pause'})">Pause Auto</button>
-      <button onclick="send({type:'bingo_resume'})">Resume Auto</button>
-      <button onclick="send({type:'bingo_claim'})">Claim Bingo</button>
+    <div id="status">
+      <div id="turn-label">Waiting…</div>
     </div>
 
-    <div id="bjActions" class="row" style="display:none">
-      <button onclick="send({type:'bj_hit'})">Hit</button>
-      <button onclick="send({type:'bj_stand'})">Stand</button>
-    </div>
+    <div id="hand-area">
+      <div id="hand"></div>
+      <div class="actions">
+        <button id="btn-draw" class="btn-action btn-draw" onclick="sendDraw()">Draw</button>
+        <button id="btn-pass" class="btn-action btn-pass" onclick="sendPass()">Pass</button>
 
-    <div class="row" style="margin-top:8px">
-      <button onclick="send({type:'restart'})">Back to Lobby</button>
-    </div>
-  </div>
+        <button id="btn-hit" class="btn-action btn-pass" style="display:none" onclick="send({type:'bj_hit'})">Hit</button>
+        <button id="btn-stand" class="btn-action btn-pass" style="display:none" onclick="send({type:'bj_stand'})">Stand</button>
 
-  <div class="card">
-    <h3>Chat</h3>
-    <div id="chatBox"></div>
-    <div class="row" style="margin-top:8px">
-      <input id="chatInput" placeholder="Message" style="flex:1"/>
-      <button onclick="sendChat()">Send</button>
-      <button onclick="send({type:'clear_chat'})">Host Clear</button>
+        <button id="btn-bingo-draw" class="btn-action btn-pass" style="display:none" onclick="send({type:'bingo_draw_next'})">Draw Ball</button>
+        <button id="btn-bingo-pause" class="btn-action btn-pass" style="display:none" onclick="send({type:'bingo_pause'})">Pause</button>
+        <button id="btn-bingo-resume" class="btn-action btn-pass" style="display:none" onclick="send({type:'bingo_resume'})">Resume</button>
+        <button id="btn-bingo-claim" class="btn-action btn-pass" style="display:none" onclick="send({type:'bingo_claim'})">Claim Bingo</button>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- SUIT CHOOSER FOR 8 -->
+<div id="wild-chooser">
+  <div class="wild-box">
+    <h3>8 is wild — choose a suit</h3>
+    <div class="wild-suits">
+      <button class="wild-btn" style="color:#111" onclick="chooseSuit('Spades')">♠</button>
+      <button class="wild-btn" style="color:#d62839" onclick="chooseSuit('Hearts')">♥</button>
+      <button class="wild-btn" style="color:#d62839" onclick="chooseSuit('Diamonds')">♦</button>
+      <button class="wild-btn" style="color:#111" onclick="chooseSuit('Clubs')">♣</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-over">
+  <div class="over-box">
+    <h2 id="over-title">🏆 Winner</h2>
+    <p id="over-sub" style="color:#9fb4cb;margin:8px 0 16px">Nice game.</p>
+    <button class="btn-primary" style="width:auto;padding:10px 26px" onclick="sendRestart()">Back to Lobby</button>
+  </div>
+</div>
+
+<audio id="bgm" preload="auto"></audio>
+<div id="toast"></div>
+
 <script>
-const SUIT_SYMBOL = {Spades:'♠',Hearts:'♥',Diamonds:'♦',Clubs:'♣'};
-const WS_URL = location.protocol==='https:' ? `wss://${location.host}` : `ws://${location.host}`;
-let ws, myRoom='', myName='', isHost=false, gameType='crazy_eights';
+const WS_URL = location.protocol === 'https:' ? 'wss://' + location.host : 'ws://' + location.host;
+const SUIT_SYMBOL = { Spades:'♠', Hearts:'♥', Diamonds:'♦', Clubs:'♣' };
+
+let ws = null;
+let myName = '', myRoom = '';
+let myIdx = -1, isHost = false;
+let gameType = 'crazy_eights';
+let gameState = null;
+let pendingEightIdx = null;
+let roomHostCanClearChat = false;
+let roomGameplayMusicEnabled = false;
+let chatOpen = false;
+let toastTimer = null;
+
+const MUSIC_TRACKS = [
+  '/assets/music/card-table-swing.mp3',
+  '/assets/music/in-the-lobby.mp3',
+  '/assets/music/pass-the-chips.mp3',
+  '/assets/music/game-in-progress.mp3',
+  '/assets/music/dealing-the-cards.mp3'
+];
+let musicMuted=false, lastTrackIdx=-1;
 
 function connect(){
   ws = new WebSocket(WS_URL);
-  ws.onmessage = e => { try { handle(JSON.parse(e.data)); } catch(err){ console.error(err); } };
-  ws.onclose = ()=>setTimeout(connect,1500);
+  ws.onmessage = e => { try { handle(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  ws.onclose = () => { toast('Connection lost. Reconnecting…'); setTimeout(connect, 1800); };
+  ws.onerror = () => ws.close();
 }
 connect();
 
-function send(o){ if (ws && ws.readyState===1) ws.send(JSON.stringify(o)); }
+function send(obj){ if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+
+function screen(id){
+  document.getElementById('screen-join').style.display = id==='join' ? 'flex':'none';
+  document.getElementById('screen-lobby').style.display = id==='lobby' ? 'flex':'none';
+  document.getElementById('screen-game').style.display = id==='game' ? 'flex':'none';
+}
+
+function showJoinErr(msg){ document.getElementById('join-err').textContent = msg; }
 
 function joinRoom(){
-  const name = document.getElementById('name').value.trim();
-  const room = document.getElementById('room').value.trim().toUpperCase();
-  const gt = document.getElementById('gameType').value;
-  if(!name||!room){ document.getElementById('err').textContent='Need name + room'; return; }
-  myName=name; myRoom=room; gameType=gt;
-  send({type:'join',name,code:room,gameType:gt});
+  const name = document.getElementById('inp-name').value.trim();
+  const code = document.getElementById('inp-room').value.trim().toUpperCase();
+  const sel  = document.getElementById('inp-game');
+  gameType = sel ? sel.value : 'crazy_eights';
+  if (!name) return showJoinErr('Enter your name');
+  if (!code) return showJoinErr('Enter a room code');
+  myName = name; myRoom = code;
+  send({ type:'join', name, code, gameType });
 }
 
-function saveOptions(){
+function quickRoom(){
+  const words = ['PIZZA','DISCO','FLAME','STORM','NOVA','LASER','ZEBRA','MAPLE'];
+  document.getElementById('inp-room').value = words[Math.floor(Math.random()*words.length)];
+  joinRoom();
+}
+
+function sendStart(){ send({ type:'start' }); }
+function sendDraw(){ send({ type:'draw' }); }
+function sendPass(){ send({ type:'pass' }); }
+function sendRestart(){ document.getElementById('screen-over').style.display='none'; send({ type:'restart' }); }
+
+function sendRoomOptions(){
   send({
     type:'set_room_options',
-    chatFilterEnabled: document.getElementById('optChatFilter').checked,
-    hostCanClearChat: document.getElementById('optHostClear').checked,
-    gameplayMusicEnabled: document.getElementById('optMusic').checked,
-    bjBettingEnabled: document.getElementById('optBjBet').checked,
-    bingoAutoDrawEnabled: document.getElementById('optBingoAuto').checked,
-    bingoDrawIntervalSec: Number(document.getElementById('optBingoSec').value || 10)
+    chatFilterEnabled: document.getElementById('opt-chat-filter').checked,
+    hostCanClearChat: document.getElementById('opt-host-clear').checked,
+    gameplayMusicEnabled: document.getElementById('opt-music').checked,
+    bjBettingEnabled: document.getElementById('opt-bj-bet').checked,
+    bingoAutoDrawEnabled: document.getElementById('opt-bingo-auto').checked,
+    bingoDrawIntervalSec: Number(document.getElementById('opt-bingo-sec').value || 10)
   });
 }
-function startGame(){ send({type:'start'}); }
+
+function clearChat(){ if (isHost && roomHostCanClearChat) send({ type:'clear_chat' }); }
 function sendChat(){
-  const i=document.getElementById('chatInput'); const t=i.value.trim(); if(!t) return;
-  send({type:'chat',text:t}); i.value='';
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim();
+  if(!text) return;
+  send({type:'chat',text});
+  inp.value='';
+}
+
+function toggleChat(){
+  chatOpen=!chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
 }
 
 function handle(msg){
-  if(msg.type==='error'){ document.getElementById('err').textContent=msg.msg; return; }
-  if(msg.type==='joined'){
-    isHost = !!msg.isHost;
-    document.getElementById('join').style.display='none';
-    document.getElementById('lobby').style.display='block';
-    document.getElementById('roomLabel').textContent = msg.code;
-    return;
+  switch(msg.type){
+    case 'error':
+      showJoinErr(msg.msg||'Error');
+      toast(msg.msg||'Error');
+      break;
+    case 'joined':
+      myIdx = msg.yourIdx;
+      isHost = !!msg.isHost;
+      myRoom = msg.code;
+      gameType = msg.gameType || gameType;
+      screen('lobby');
+      document.getElementById('lby-code').textContent = myRoom;
+      document.getElementById('lby-code-big').textContent = myRoom;
+      break;
+    case 'lobby':
+      onLobby(msg);
+      break;
+    case 'state':
+      onState(msg);
+      break;
+    case 'chat':
+      onChat(msg);
+      break;
+    case 'chat_cleared':
+      document.getElementById('chat-msgs').innerHTML = '';
+      break;
+    case 'bingo_draw':
+      document.getElementById('turn-label').textContent = `Bingo draw: ${msg.number}`;
+      break;
+    case 'bingo_start':
+      screen('game');
+      showModeButtons('bingo');
+      break;
+    case 'gameover':
+      onGameOver(msg);
+      break;
   }
-  if(msg.type==='lobby'){
-    gameType = msg.gameType || gameType;
-    document.getElementById('players').textContent = 'Players: ' + msg.players.join(', ');
-    document.getElementById('optChatFilter').checked = !!msg.chatFilterEnabled;
-    document.getElementById('optHostClear').checked = !!msg.hostCanClearChat;
-    document.getElementById('optMusic').checked = !!msg.gameplayMusicEnabled;
-    document.getElementById('optBjBet').checked = msg.bjBettingEnabled !== false;
-    document.getElementById('optBingoAuto').checked = msg.bingoAutoDrawEnabled !== false;
-    document.getElementById('optBingoSec').value = msg.bingoDrawIntervalSec || 10;
-    return;
-  }
-  if(msg.type==='state'){
-    document.getElementById('lobby').style.display='none';
-    document.getElementById('game').style.display='block';
-    const mode = msg.gameType || gameType;
-    document.getElementById('modeTitle').textContent = mode.replace('_',' ').toUpperCase();
+}
 
-    document.getElementById('ceActions').style.display = mode==='crazy_eights' ? 'flex' : 'none';
-    document.getElementById('bingoActions').style.display = mode==='bingo' ? 'flex' : 'none';
-    document.getElementById('bjActions').style.display = mode==='blackjack' ? 'flex' : 'none';
+function onLobby(msg){
+  if (gameState && gameState.state === 'playing') return;
+  screen('lobby');
 
-    if(mode==='crazy_eights'){
-      const top = msg.topCard ? `${msg.topCard.rank}${SUIT_SYMBOL[msg.topCard.suit]||''}` : '—';
-      document.getElementById('state').textContent =
-        `Top: ${top} | Active: ${msg.activeRank}${SUIT_SYMBOL[msg.activeSuit]||''} | Deck: ${msg.deckCount}`;
-    } else if(mode==='blackjack'){
-      document.getElementById('state').textContent =
-        `Blackjack phase: ${msg.phase || ''} | Turn: ${msg.turnIdx ?? ''}`;
+  gameType = msg.gameType || gameType;
+  document.getElementById('lby-game').textContent = prettyGameName(gameType);
+
+  const playersEl = document.getElementById('lby-players');
+  playersEl.innerHTML = '';
+  (msg.players || []).forEach(n => {
+    const s = document.createElement('span');
+    s.textContent = n + (n===msg.hostName ? ' 👑' : '');
+    playersEl.appendChild(s);
+  });
+
+  roomHostCanClearChat = !!msg.hostCanClearChat;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+
+  document.getElementById('opt-chat-filter').checked = !!msg.chatFilterEnabled;
+  document.getElementById('opt-host-clear').checked = !!msg.hostCanClearChat;
+  document.getElementById('opt-music').checked = !!msg.gameplayMusicEnabled;
+  document.getElementById('opt-bj-bet').checked = msg.bjBettingEnabled !== false;
+  document.getElementById('opt-bingo-auto').checked = msg.bingoAutoDrawEnabled !== false;
+  document.getElementById('opt-bingo-sec').value = msg.bingoDrawIntervalSec || 10;
+
+  ['opt-chat-filter','opt-host-clear','opt-music','opt-bj-bet','opt-bingo-auto','opt-bingo-sec'].forEach(id=>{
+    document.getElementById(id).disabled = !isHost;
+  });
+
+  const canStart = isHost && (msg.players||[]).length >= 1;
+  document.getElementById('btn-start').disabled = !canStart;
+  document.getElementById('lby-hint').textContent = isHost ? 'Ready! Press Start.' : 'Waiting for the host to start…';
+}
+
+function prettyGameName(gt){
+  return ({crazy_eights:'Crazy Eights', blackjack:'Blackjack', bingo:'Bingo'})[gt] || gt;
+}
+
+function onState(msg){
+  gameState = msg;
+  screen('game');
+
+  const mode = msg.gameType || gameType;
+  showModeButtons(mode);
+
+  if (mode === 'crazy_eights') renderCrazyState(msg);
+  if (mode === 'blackjack') renderBlackjackState(msg);
+  if (mode === 'bingo') renderBingoState(msg);
+
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  syncMusic(msg.state || 'playing');
+
+  const clearBtn = document.getElementById('chat-clear-host');
+  clearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+}
+
+function renderCrazyState(s){
+  document.getElementById('deck-count').textContent = s.deckCount ?? 0;
+  document.getElementById('turn-label').textContent = s.yourIdx === s.turnIdx ? '🟢 YOUR TURN' : '⏳ Opponent turn';
+
+  const top = s.topCard || null;
+  document.getElementById('top-corner').textContent = top ? (SUIT_SYMBOL[top.suit]||'') : '—';
+  document.getElementById('top-card-val').textContent = top ? top.rank : '—';
+  document.getElementById('active-suit-label').textContent = `Active: ${s.activeRank||'-'} ${SUIT_SYMBOL[s.activeSuit]||''}`;
+
+  const opp = document.getElementById('opponents');
+  opp.innerHTML = '';
+  (s.others||[]).forEach(o=>{
+    if(o.isYou) return;
+    const d=document.createElement('div');
+    d.className='opponent'+(o.isCurrentTurn?' active':'');
+    d.innerHTML = `<div class="opp-name">${o.name}</div><div class="opp-count">${o.cardCount} cards</div>`;
+    opp.appendChild(d);
+  });
+
+  const hand = document.getElementById('hand');
+  hand.innerHTML = '';
+  (s.hand||[]).forEach((c,idx)=>{
+    const playable = (s.yourIdx===s.turnIdx && !s.hasDrawn) ? (c.rank==='8' || c.suit===s.activeSuit || c.rank===s.activeRank) : false;
+    const face = `${c.rank}${SUIT_SYMBOL[c.suit]||''}`;
+    const color = (c.suit==='Hearts'||c.suit==='Diamonds') ? '#d62839' : '#111';
+
+    const card=document.createElement('div');
+    card.className='card'+(playable?'':' unplayable');
+    card.style.color=color;
+    card.innerHTML = `<div class="corner tl">${face}</div><div class="face">${face}</div><div class="corner br">${face}</div>`;
+    if(playable){
+      card.onclick=()=>{
+        if(c.rank==='8'){
+          pendingEightIdx = idx;
+          document.getElementById('wild-chooser').style.display='flex';
+        } else {
+          send({type:'play', cardIdx:idx, chosenSuit:c.suit});
+        }
+      };
     }
-    return;
+    hand.appendChild(card);
+  });
+}
+
+function chooseSuit(suit){
+  document.getElementById('wild-chooser').style.display='none';
+  if(pendingEightIdx!==null){
+    send({type:'play', cardIdx:pendingEightIdx, chosenSuit:suit});
+    pendingEightIdx=null;
   }
-  if(msg.type==='bingo_start'){
-    document.getElementById('lobby').style.display='none';
-    document.getElementById('game').style.display='block';
-    document.getElementById('modeTitle').textContent = 'BINGO';
-    document.getElementById('ceActions').style.display='none';
-    document.getElementById('bjActions').style.display='none';
-    document.getElementById('bingoActions').style.display='flex';
-    document.getElementById('state').textContent='Bingo started.';
-    return;
+}
+
+function renderBlackjackState(s){
+  document.getElementById('turn-label').textContent = `Blackjack • ${s.phase||''}`;
+  document.getElementById('active-suit-label').textContent = `Dealer stands on 17 • Betting ${s.bettingEnabled===false?'Off':'On'}`;
+  document.getElementById('hand').innerHTML = '';
+  document.getElementById('opponents').innerHTML = '';
+  document.getElementById('deck-count').textContent = '—';
+  document.getElementById('top-corner').textContent = '♠';
+  document.getElementById('top-card-val').textContent = 'BJ';
+}
+
+function renderBingoState(s){
+  document.getElementById('turn-label').textContent = `Bingo in progress`;
+  document.getElementById('active-suit-label').textContent = `Auto-draw available`;
+  document.getElementById('hand').innerHTML = '';
+  document.getElementById('opponents').innerHTML = '';
+  document.getElementById('deck-count').textContent = '75';
+  document.getElementById('top-corner').textContent = '🎱';
+  document.getElementById('top-card-val').textContent = 'B';
+}
+
+function showModeButtons(mode){
+  const ids=['btn-hit','btn-stand','btn-bingo-draw','btn-bingo-pause','btn-bingo-resume','btn-bingo-claim'];
+  ids.forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('btn-draw').style.display = mode==='crazy_eights'?'inline-block':'none';
+  document.getElementById('btn-pass').style.display = mode==='crazy_eights'?'inline-block':'none';
+  if(mode==='blackjack'){ document.getElementById('btn-hit').style.display='inline-block'; document.getElementById('btn-stand').style.display='inline-block'; }
+  if(mode==='bingo'){
+    document.getElementById('btn-bingo-draw').style.display='inline-block';
+    document.getElementById('btn-bingo-pause').style.display='inline-block';
+    document.getElementById('btn-bingo-resume').style.display='inline-block';
+    document.getElementById('btn-bingo-claim').style.display='inline-block';
   }
-  if(msg.type==='bingo_draw'){
-    document.getElementById('state').textContent = `Bingo draw: ${msg.number} | Drawn count: ${msg.drawn.length}`;
-    return;
-  }
-  if(msg.type==='chat'){
-    const box=document.getElementById('chatBox');
-    box.innerHTML += `<div><b>${msg.from}:</b> ${msg.text}</div>`;
-    box.scrollTop = box.scrollHeight;
-    return;
-  }
-  if(msg.type==='chat_cleared'){ document.getElementById('chatBox').innerHTML=''; return; }
-  if(msg.type==='gameover'){ document.getElementById('state').textContent = `Winner: ${msg.winner}`; return; }
+}
+
+function onChat(msg){
+  const box=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.innerHTML = `<b>${msg.from}:</b> ${msg.text}`;
+  d.style.color = (msg.from==='Server') ? '#bfcad7' : '#fff';
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function onGameOver(msg){
+  document.getElementById('over-title').textContent = `🏆 ${msg.winner} wins!`;
+  document.getElementById('screen-over').style.display='flex';
+}
+
+function pickTrack(){
+  if(MUSIC_TRACKS.length<=1) return 0;
+  let i; do{i=Math.floor(Math.random()*MUSIC_TRACKS.length)}while(i===lastTrackIdx);
+  lastTrackIdx=i; return i;
+}
+function syncMusic(state){
+  const bgm=document.getElementById('bgm');
+  if(!bgm) return;
+  bgm.muted = musicMuted;
+  if(state!=='playing' || !roomGameplayMusicEnabled){ bgm.pause(); return; }
+  if(!bgm.src) bgm.src = MUSIC_TRACKS[pickTrack()];
+  if(bgm.paused) bgm.play().catch(()=>{});
+  bgm.onended = ()=>{ bgm.src=MUSIC_TRACKS[pickTrack()]; bgm.play().catch(()=>{}); };
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2400);
 }
 </script>
 </body>
