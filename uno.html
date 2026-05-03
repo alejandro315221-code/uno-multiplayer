@@ -264,6 +264,18 @@ function connect(){
 connect();
 
 function send(obj){ if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+  function showScreen(id) {
+  const map = {
+    join: document.getElementById('screen-join'),
+    lobby: document.getElementById('screen-lobby'),
+    game: document.getElementById('screen-game')
+  };
+
+  Object.entries(map).forEach(([key, el]) => {
+    if (!el) return;
+    el.style.display = (key === id) ? 'flex' : 'none';
+  });
+}
 
 function screen(id){
   document.getElementById('screen-join').style.display = id==='join' ? 'flex':'none';
