@@ -273,24 +273,46 @@ function screen(id){
 
 function showJoinErr(msg){ document.getElementById('join-err').textContent = msg; }
 
-function joinRoom(){
+function joinRoom() {
   const name = document.getElementById('inp-name').value.trim();
   const code = document.getElementById('inp-room').value.trim().toUpperCase();
-  const sel  = document.getElementById('inp-game');
-  gameType = sel ? sel.value : 'crazy_eights';
-  if (!name) return showJoinErr('Enter your name');
-  if (!code) return showJoinErr('Enter a room code');
-  myName = name; myRoom = code;
-  send({ type:'join', name, code, gameType });
+  if (!name) { showJoinErr('Enter your name'); return; }
+  if (!code) { showJoinErr('Enter a room code'); return; }
+
+  const gameSel = document.getElementById('inp-game');
+  selectedGame = gameSel ? gameSel.value : 'crazy_eights';
+
+  myName = name;
+  myRoom = code;
+  send({ type:'join', name, code, gameType: selectedGame });
 }
 
 function quickRoom(){
-  const words = ['PIZZA','DISCO','FLAME','STORM','NOVA','LASER','ZEBRA','MAPLE'];
+  const words = ['PIZZA','DISCO','FLAME','STORM','NOVA','LASER','ZEBRA','MAPLE','TABLE','STAR','RAIN'];
   document.getElementById('inp-room').value = words[Math.floor(Math.random()*words.length)];
   joinRoom();
 }
 
 function sendStart(){ send({ type:'start' }); }
+  function playCard(idx, card) {
+  // Crazy Eights: 8 is wild -> choose suit
+  if (card.rank === '8') {
+    pendingPlayIdx = idx;
+    document.getElementById('wild-chooser').style.display = 'flex';
+    playSound('wild');
+  } else {
+    playSound('play');
+    send({ type:'play', cardIdx: idx, chosenSuit: card.suit });
+  }
+}
+  function chooseWild(suit) {
+  document.getElementById('wild-chooser').style.display = 'none';
+  playSound('play');
+  if (pendingPlayIdx !== null) {
+    send({ type:'play', cardIdx: pendingPlayIdx, chosenSuit: suit });
+    pendingPlayIdx = null;
+  }
+}
 function sendDraw(){ send({ type:'draw' }); }
 function sendPass(){ send({ type:'pass' }); }
 function sendRestart(){ document.getElementById('screen-over').style.display='none'; send({ type:'restart' }); }
@@ -316,9 +338,14 @@ function sendChat(){
   inp.value='';
 }
 
-function toggleChat(){
-  chatOpen=!chatOpen;
-  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open', chatOpen);
+  document.getElementById('chat-icon').textContent = chatOpen ? '✕' : '💬';
+  if (chatOpen) {
+    const dot = document.getElementById('chat-dot');
+    if (dot) dot.style.display = 'none';
+  }
 }
 
 function handle(msg){
@@ -399,24 +426,54 @@ function prettyGameName(gt){
   return ({crazy_eights:'Crazy Eights', blackjack:'Blackjack', bingo:'Bingo'})[gt] || gt;
 }
 
-function onState(msg){
+function onState(msg) {
   gameState = msg;
-  screen('game');
+  if (msg.state === 'over') return;
+  showScreen('game');
 
-  const mode = msg.gameType || gameType;
-  showModeButtons(mode);
+  const mode = msg.gameType || selectedGame;
 
-  if (mode === 'crazy_eights') renderCrazyState(msg);
-  if (mode === 'blackjack') renderBlackjackState(msg);
-  if (mode === 'bingo') renderBingoState(msg);
+  // host clear chat button visibility
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+
+  // default hide mode-specific actions
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('btn-hit', false); show('btn-stand', false);
+  show('btn-bingo-draw', false); show('btn-bingo-pause', false); show('btn-bingo-resume', false); show('btn-bingo-claim', false);
+
+  if (mode === 'crazy_eights') {
+    renderOpponents(msg);
+    renderTopCard(msg.topCard, msg.activeSuit);
+    renderHand(msg.hand, msg.activeSuit, msg.activeRank, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
+    renderStatus(msg);
+    document.getElementById('deck-count').textContent = msg.deckCount ?? 0;
+    document.getElementById('btn-draw').style.display = '';
+    document.getElementById('btn-pass').style.display = '';
+  } else if (mode === 'bingo') {
+    // no card hand for bingo
+    document.getElementById('opponents').innerHTML = '';
+    document.getElementById('hand-cards').innerHTML = '';
+    document.getElementById('turn-label').textContent = '🎱 BINGO IN PROGRESS';
+    document.getElementById('active-col-label').textContent = 'Draw balls to continue';
+    document.getElementById('deck-count').textContent = '75';
+    document.getElementById('btn-draw').style.display = 'none';
+    document.getElementById('btn-pass').style.display = 'none';
+    show('btn-bingo-draw', true); show('btn-bingo-pause', true); show('btn-bingo-resume', true); show('btn-bingo-claim', true);
+  } else if (mode === 'blackjack') {
+    document.getElementById('opponents').innerHTML = '';
+    document.getElementById('hand-cards').innerHTML = '';
+    document.getElementById('turn-label').textContent = '🃏 BLACKJACK';
+    document.getElementById('active-col-label').textContent = 'Hit or Stand';
+    document.getElementById('deck-count').textContent = '—';
+    document.getElementById('btn-draw').style.display = 'none';
+    document.getElementById('btn-pass').style.display = 'none';
+    show('btn-hit', true); show('btn-stand', true);
+  }
 
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
-  syncMusic(msg.state || 'playing');
-
-  const clearBtn = document.getElementById('chat-clear-host');
-  clearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+  syncGameplayMusic(msg.state || 'playing');
 }
-
 function renderCrazyState(s){
   document.getElementById('deck-count').textContent = s.deckCount ?? 0;
   document.getElementById('turn-label').textContent = s.yourIdx === s.turnIdx ? '🟢 YOUR TURN' : '⏳ Opponent turn';
@@ -503,15 +560,24 @@ function showModeButtons(mode){
   }
 }
 
-function onChat(msg){
-  const box=document.getElementById('chat-msgs');
-  const d=document.createElement('div');
-  d.innerHTML = `<b>${msg.from}:</b> ${msg.text}`;
-  d.style.color = (msg.from==='Server') ? '#bfcad7' : '#fff';
-  box.appendChild(d);
-  box.scrollTop = box.scrollHeight;
-}
+function onChat(msg) {
+  const chatBox = document.getElementById('chat-messages');
+  if (!chatBox) return;
 
+  const div = document.createElement('div');
+  const isSystem = (msg.from === "Server" || msg.from === "SERVER");
+  div.textContent = `${msg.from}: ${msg.text}`;
+  div.style.color = isSystem ? '#aaaaaa' : '#ffffff';
+  if (isSystem) div.style.fontStyle = 'italic';
+
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  if (!isSystem && !chatOpen) {
+    const dot = document.getElementById('chat-dot');
+    if (dot) dot.style.display = 'block';
+  }
+}
 function onGameOver(msg){
   document.getElementById('over-title').textContent = `🏆 ${msg.winner} wins!`;
   document.getElementById('screen-over').style.display='flex';
