@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>UNO Multiplayer</title>
-  <link rel="icon" href="<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23e63946'/%3E%3Cellipse cx='50' cy='50' rx='40' ry='25' fill='white' transform='rotate(-45 50 50)'/%3E%3Ctext x='50%25' y='65%25' font-family='Arial, sans-serif' font-weight='900' font-size='55' fill='%23e63946' text-anchor='middle'%3EU%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="shortcut icon" href="/favicon.svg">
 <style>
 /* ── Reset & Base ───────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -32,6 +33,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   color:#778da9;margin-top:8px;transition:all .15s}
 .btn-secondary:hover{background:#415a77;color:#e0e1dd}
 .join-err{color:#ff595e;font-size:.85rem;margin-top:6px;min-height:1.1em}
+.select-input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #415a77;background:#1b2d42;color:#e0e1dd;font-size:1rem;margin-bottom:12px;outline:none}
 
 /* ── Lobby screen ───────────────────────────────────────── */
 #screen-lobby{position:fixed;inset:0;display:none;flex-direction:column;
@@ -52,6 +54,10 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 .btn-start:hover{filter:brightness(1.12)}
 .btn-start:disabled{opacity:.45;cursor:not-allowed}
 .waiting-hint{color:#778da9;font-size:.85rem;margin-top:10px}
+.lobby-options{margin-top:12px;text-align:left;background:rgba(0,0,0,.2);border:1px solid #415a77;border-radius:10px;padding:10px 12px}
+.lobby-options label{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.88rem;color:#e0e1dd}
+.lobby-options button{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:#e63946;color:#fff;font-weight:700;cursor:pointer}
+.lobby-options button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ── Game screen ────────────────────────────────────────── */
 #screen-game{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden}
@@ -350,6 +356,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   <div class="lobby-box">
     <h2>Room <span style="color:#4cc9f0" id="lby-code"></span></h2>
     <div style="color:#778da9;font-size:.85rem;margin-bottom:6px">Share this code with friends!</div>
+    <div style="color:#fca311;font-size:.9rem;margin-bottom:6px">Game: <strong id="lby-game">Crazy Eights</strong></div>
     <div class="room-code" id="lby-code-big"></div>
     <ul class="lobby-players" id="lby-players"></ul>
     <!-- CPU Selection -->
@@ -363,6 +370,12 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </div>
 
     <button class="btn-start" id="btn-start" onclick="sendStart()" disabled>Start Game</button>
+    <div class="lobby-options" id="host-options">
+      <label><input type="checkbox" id="opt-chat-filter" onchange="sendRoomOptions()"> Enable chat filter</label>
+      <label><input type="checkbox" id="opt-host-clear" onchange="sendRoomOptions()"> Allow host to clear chat</label>
+      <label><input type="checkbox" id="opt-game-music" onchange="sendRoomOptions()"> Enable gameplay music for everyone</label>
+      <button id="btn-clear-chat" onclick="clearChat()" disabled>Clear Chat (Host)</button>
+    </div>
     <div class="waiting-hint" id="lby-hint">Waiting for the host to start…</div>
   </div>
 </div>
@@ -371,6 +384,10 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 <div id="screen-game" style="display:none">
   <!-- Table -->
   <div id="table">
+    <div id="audio-controls" style="position:absolute;left:10px;top:10px;z-index:40;display:flex;gap:8px">
+      <button class="btn-secondary" id="btn-mute-music" onclick="toggleMusicMute()">Music: On</button>
+      <button class="btn-secondary" id="btn-mute-sfx" onclick="toggleSfxMute()">SFX: On</button>
+    </div>
     <!-- Opponents ring -->
     <div id="opponents"></div>
 
@@ -438,7 +455,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 
 <!-- THE PANEL -->
 <div id="chat-panel"> 
-    <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1); font-size:.8rem;font-weight:700;color:#4cc9f0">Room Chat</div> 
+    <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1); font-size:.8rem;font-weight:700;color:#4cc9f0;display:flex;justify-content:space-between;align-items:center">Room Chat <button id="chat-clear-host" class="btn-secondary" style="width:auto;padding:4px 8px;font-size:.75rem;display:none" onclick="clearChat()">Clear</button></div> 
     <div id="chat-messages"></div> 
     <div id="chat-input-row"> 
         <input id="chat-input" placeholder="Message…" maxlength="200" onkeydown="if(event.key==='Enter')sendChat()"> 
@@ -447,6 +464,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </div>
 
 <!-- ── TOAST ─────────────────────────────────────────────── -->
+<audio id="bgm" preload="auto"></audio>
 <div id="toast"></div>
 
 <script>
@@ -462,6 +480,14 @@ let myIdx  = -1;
 let isHost = false;
 let gameState = null;
 let pendingPlayIdx = null; // card index waiting for wild color choice
+let roomChatFilterEnabled = false;
+let roomHostCanClearChat = false;
+let selectedGame = 'crazy_eights';
+let roomGameplayMusicEnabled = false;
+let musicMuted = false;
+let sfxMuted = false;
+const MUSIC_TRACKS = ['/assets/music/card-table-swing.mp3','/assets/music/in-the-lobby.mp3','/assets/music/pass-the-chips.mp3','/assets/music/game-in-progress.mp3','/assets/music/dealing-the-cards.mp3'];
+let lastTrackIdx = -1;
 
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -488,6 +514,7 @@ function handle(msg) {
     case 'state':  onState(msg); break;
     case 'chat':   onChat(msg); break;
     case 'gameover': onGameOver(msg); break;
+    case 'chat_cleared': onChatCleared(msg); break;
   }
 }
 
@@ -497,8 +524,9 @@ function joinRoom() {
   const code = document.getElementById('inp-room').value.trim().toUpperCase();
   if (!name) { showJoinErr('Enter your name'); return; }
   if (!code) { showJoinErr('Enter a room code'); return; }
+  selectedGame = document.getElementById('inp-game').value || 'crazy_eights';
   myName = name; myRoom = code;
-  send({ type:'join', name, code });
+  send({ type:'join', name, code, gameType: selectedGame });
 }
 
 function quickRoom() {
@@ -519,6 +547,7 @@ function onJoined(msg) {
   showScreen('lobby');
   document.getElementById('lby-code').textContent = msg.code;
   document.getElementById('lby-code-big').textContent = msg.code;
+  document.getElementById('lby-game').textContent = prettyGameName(msg.gameType || selectedGame);
 }
 
 // ── Lobby ───────────────────────────────────────────────
@@ -527,6 +556,7 @@ function onLobby(msg) {
   showScreen('lobby');
   document.getElementById('lby-code').textContent = myRoom;
   document.getElementById('lby-code-big').textContent = myRoom;
+  document.getElementById('lby-game').textContent = prettyGameName(msg.gameType || selectedGame);
 
   const ul = document.getElementById('lby-players');
   ul.innerHTML = '';
@@ -537,6 +567,18 @@ function onLobby(msg) {
     ul.appendChild(li);
   });
 
+  roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomHostCanClearChat = !!msg.hostCanClearChat;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  document.getElementById('opt-chat-filter').checked = roomChatFilterEnabled;
+  document.getElementById('opt-host-clear').checked = roomHostCanClearChat;
+  document.getElementById('opt-chat-filter').disabled = !isHost;
+  document.getElementById('opt-host-clear').disabled = !isHost;
+  document.getElementById('btn-clear-chat').disabled = !(isHost && roomHostCanClearChat);
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+  document.getElementById('opt-game-music').checked = roomGameplayMusicEnabled;
+  document.getElementById('opt-game-music').disabled = !isHost;
   const canStart = isHost && msg.players.length >= 2;
   document.getElementById('btn-start').disabled = !canStart;
   document.getElementById('lby-hint').textContent = isHost
@@ -545,6 +587,30 @@ function onLobby(msg) {
 }
 
 function sendStart() { send({ type:'start' }); }
+
+function prettyGameName(gameType) {
+  const names = {
+    crazy_eights: 'Crazy Eights',
+    blackjack_chips: 'Blackjack (Chips)',
+    bingo: 'Bingo',
+    yahtzee: 'Yahtzee',
+    left_center_right: 'Left Center Right'
+  };
+  return names[gameType] || 'Crazy Eights';
+}
+
+function sendRoomOptions() {
+  if (!isHost) return;
+  const chatFilterEnabled = document.getElementById('opt-chat-filter').checked;
+  const hostCanClearChat = document.getElementById('opt-host-clear').checked;
+  const gameplayMusicEnabled = document.getElementById('opt-game-music').checked;
+  send({ type:'set_room_options', chatFilterEnabled, hostCanClearChat, gameplayMusicEnabled });
+}
+
+function clearChat() {
+  if (!isHost || !roomHostCanClearChat) return;
+  send({ type:'clear_chat' });
+}
 
 // ── Game State ──────────────────────────────────────────
 const COL_HEX = { Red:'#ff595e', Green:'#8ac926', Blue:'#1982c4', Yellow:'#ffca3a', Wild:'#333' };
@@ -559,6 +625,10 @@ function onState(msg) {
   renderHand(msg.hand, msg.activeColor, msg.activeVal, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
   renderStatus(msg);
   document.getElementById('deck-count').textContent = msg.deckCount;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+  syncGameplayMusic(msg.state);
 }
 
 function renderOpponents(state) {
@@ -617,7 +687,7 @@ function changeCPU(delta) {
     cpuCount = Math.max(0, Math.min(9, cpuCount + delta));
     document.getElementById('cpu-count').textContent = cpuCount;
     
-    // Tell the server in Oregon to add these bots
+    // Tell the server to add these bots
     send({ type: 'set_cpus', count: cpuCount });
 }
 
@@ -690,7 +760,7 @@ function playCard(idx, card) {
     document.getElementById('wild-chooser').style.display = 'flex';
     playSound('wild');
       } else {
-        playSound('play'); // <--- ADD THIS LINE
+        playSound('play');
         send({ type: 'play', cardIdx: idx, chosenColor: card.col });
     }
 
@@ -709,7 +779,7 @@ function sendDraw() {
     if (!gameState) return;
     if (gameState.yourIdx !== gameState.turnIdx) return;
     if (gameState.hasDrawn) return;
-    playSound('draw'); // <--- ADD THIS LINE
+    playSound('draw');
     send({ type: 'draw' });
 }
 
@@ -746,7 +816,37 @@ function sendChat() {
   inp.value = '';
 }
 
+function pickRandomTrack() {
+  if (MUSIC_TRACKS.length <= 1) return 0;
+  let i; do { i = Math.floor(Math.random() * MUSIC_TRACKS.length); } while (i === lastTrackIdx);
+  lastTrackIdx = i;
+  return i;
+}
+
+function syncGameplayMusic(state) {
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+  bgm.muted = musicMuted;
+  if (state !== 'playing' || !roomGameplayMusicEnabled) { bgm.pause(); return; }
+  if (!bgm.src) { bgm.src = MUSIC_TRACKS[pickRandomTrack()]; }
+  if (bgm.paused) bgm.play().catch(() => {});
+  bgm.onended = () => { bgm.src = MUSIC_TRACKS[pickRandomTrack()]; bgm.play().catch(() => {}); };
+}
+
+function toggleMusicMute() {
+  musicMuted = !musicMuted;
+  const bgm = document.getElementById('bgm');
+  if (bgm) bgm.muted = musicMuted;
+  document.getElementById('btn-mute-music').textContent = `Music: ${musicMuted ? 'Off' : 'On'}`;
+}
+
+function toggleSfxMute() {
+  sfxMuted = !sfxMuted;
+  document.getElementById('btn-mute-sfx').textContent = `SFX: ${sfxMuted ? 'Off' : 'On'}`;
+}
+
 function playSound(type) {
+  if (sfxMuted) return;
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -780,15 +880,18 @@ function playSound(type) {
     }
   }
   
+function onChatCleared(msg) {
+    const chatBox = document.getElementById('chat-messages');
+    if (!chatBox) return;
+    chatBox.innerHTML = '';
+}
+
 function onChat(msg) {
-    // 1. Find your chat container (Change 'chat-messages' to your actual ID if needed)
     const chatBox = document.getElementById('chat-messages'); 
     if (!chatBox) return; // Safety check
 
-    // 2. Create the message element
     const div = document.createElement('div');
     
-    // 3. Identify if it's a System Log vs Human Chat
     const isSystem = (msg.from === "Server" || msg.from === "SERVER");
 
     if (isSystem) {
@@ -799,18 +902,16 @@ function onChat(msg) {
         div.style.color = "#ffffff"; // White for humans
     }
 
-    // 4. Set the text
     div.textContent = `${msg.from}: ${msg.text}`;
     chatBox.appendChild(div);
     
-    // 5. Auto-scroll to the bottom
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // 6. Only "Ding" if it's NOT from the server
     if (!isSystem) {
         if (typeof chatSound !== 'undefined') {
             chatSound.play().catch(e => {}); 
-        } // THE FIX: Show red dot if the chat panel is currently closed
+        }
+
 if (!chatOpen) {
   const dot = document.getElementById('chat-dot');
   if (dot) dot.style.display = 'block';
@@ -826,9 +927,6 @@ document.addEventListener('click', function() {
     if (tempCtx.state === 'suspended') tempCtx.resume();
 }, { once: true });
 
-
-
-// NO BRACE HERE
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
