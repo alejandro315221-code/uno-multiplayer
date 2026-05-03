@@ -29,6 +29,14 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;font-fami
 .lobby-box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:28px 34px;width:560px;max-width:95vw;text-align:center}
 .room-code{font-size:2.2rem;font-weight:900;letter-spacing:5px;color:#4cc9f0;margin:8px 0}
 .lobby-players{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+  <div id="cpu-controls" style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);">
+  <p style="font-size:.85rem;color:#8fa9c5;margin-bottom:8px;">Add Computer Players</p>
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+    <button class="btn-secondary" style="width:36px;padding:5px;" onclick="changeCPU(-1)">-</button>
+    <span id="cpu-count" style="font-weight:900;font-size:1.2rem;min-width:24px;color:#ff595e;">0</span>
+    <button class="btn-secondary" style="width:36px;padding:5px;" onclick="changeCPU(1)">+</button>
+  </div>
+</div>
 .lobby-players span{background:#1b2d42;border:1px solid #415a77;border-radius:8px;padding:6px 12px;font-size:.88rem}
 .host-options{margin-top:12px;text-align:left;background:rgba(0,0,0,.22);border:1px solid #415a77;border-radius:10px;padding:10px}
 .host-options label{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.9rem}
@@ -230,9 +238,20 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;font-fami
 
 <audio id="bgm" preload="auto"></audio>
 <div id="toast"></div>
+  
 
 <script>
-const WS_URL = location.protocol === 'https:' ? 'wss://' + location.host : 'ws://' + location.host;
+let cpuCount = 0;
+
+function changeCPU(delta) {
+  if (!isHost) return; // host only
+  cpuCount = Math.max(0, Math.min(9, cpuCount + delta));
+  const el = document.getElementById('cpu-count');
+  if (el) el.textContent = cpuCount;
+  send({ type: 'set_cpus', count: cpuCount });
+}
+  
+  const WS_URL = location.protocol === 'https:' ? 'wss://' + location.host : 'ws://' + location.host;
 const SUIT_SYMBOL = { Spades:'♠', Hearts:'♥', Diamonds:'♦', Clubs:'♣' };
 
 let ws = null;
@@ -342,14 +361,13 @@ function sendRoomOptions(){
 }
 
 function clearChat(){ if (isHost && roomHostCanClearChat) send({ type:'clear_chat' }); }
-function sendChat(){
-  const inp=document.getElementById('chat-input');
-  const text=inp.value.trim();
-  if(!text) return;
-  send({type:'chat',text});
-  inp.value='';
+function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  send({ type:'chat', text });
+  inp.value = '';
 }
-
 function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chat-panel').classList.toggle('open', chatOpen);
@@ -401,6 +419,8 @@ function handle(msg){
 }
 
 function onLobby(msg){
+const cpuControls = document.getElementById('cpu-controls');
+if (cpuControls) cpuControls.style.display = isHost ? 'block' : 'none'; 
   if (gameState && gameState.state === 'playing') return;
   screen('lobby');
 
@@ -577,7 +597,7 @@ function onChat(msg) {
   if (!chatBox) return;
 
   const div = document.createElement('div');
-  const isSystem = (msg.from === "Server" || msg.from === "SERVER");
+  const isSystem = (msg.from === 'Server' || msg.from === 'SERVER');
   div.textContent = `${msg.from}: ${msg.text}`;
   div.style.color = isSystem ? '#aaaaaa' : '#ffffff';
   if (isSystem) div.style.fontStyle = 'italic';
@@ -595,19 +615,40 @@ function onGameOver(msg){
   document.getElementById('screen-over').style.display='flex';
 }
 
-function pickTrack(){
-  if(MUSIC_TRACKS.length<=1) return 0;
-  let i; do{i=Math.floor(Math.random()*MUSIC_TRACKS.length)}while(i===lastTrackIdx);
-  lastTrackIdx=i; return i;
+function pickRandomTrack() {
+  if (MUSIC_TRACKS.length <= 1) return 0;
+  let i;
+  do { i = Math.floor(Math.random() * MUSIC_TRACKS.length); }
+  while (i === lastTrackIdx);
+  lastTrackIdx = i;
+  return i;
 }
-function syncMusic(state){
-  const bgm=document.getElementById('bgm');
-  if(!bgm) return;
+
+function syncGameplayMusic(state) {
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+
   bgm.muted = musicMuted;
-  if(state!=='playing' || !roomGameplayMusicEnabled){ bgm.pause(); return; }
-  if(!bgm.src) bgm.src = MUSIC_TRACKS[pickTrack()];
-  if(bgm.paused) bgm.play().catch(()=>{});
-  bgm.onended = ()=>{ bgm.src=MUSIC_TRACKS[pickTrack()]; bgm.play().catch(()=>{}); };
+
+  if (state !== 'playing' || !roomGameplayMusicEnabled) {
+    bgm.pause();
+    return;
+  }
+
+  if (!bgm.src) bgm.src = MUSIC_TRACKS[pickRandomTrack()];
+  bgm.play().catch(() => {
+    // autoplay blocked until user clicks page
+  });
+
+  bgm.onended = () => {
+    bgm.src = MUSIC_TRACKS[pickRandomTrack()];
+    bgm.play().catch(() => {});
+  };
+
+  bgm.onerror = () => {
+    bgm.src = MUSIC_TRACKS[pickRandomTrack()];
+    bgm.play().catch(() => {});
+  };
 }
 
 function toast(msg){
@@ -616,6 +657,12 @@ function toast(msg){
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.classList.remove('show'),2400);
 }
+  // Unlock audio on first user click (autoplay fix)
+document.addEventListener('click', () => {
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+  bgm.play().then(() => bgm.pause()).catch(() => {});
+}, { once: true });
 </script>
 </body>
 </html>
