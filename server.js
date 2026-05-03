@@ -110,10 +110,21 @@ function ceNextTurn(room) {
   const g = room.ce;
   const n = room.players.length;
   let idx = (g.turnIdx + 1) % n;
+
   let tries = 0;
-  while (!room.players[idx].connected && tries < n) { idx = (idx + 1) % n; tries++; }
+  while (tries < n) {
+    const p = room.players[idx];
+    if (p && p.connected) break;
+    idx = (idx + 1) % n;
+    tries++;
+  }
+
   g.turnIdx = idx;
   g.hasDrawn = false;
+
+  // CPU turn trigger
+  const cur = room.players[g.turnIdx];
+  if (cur && cur.isBot) runCpuTurn(room);
 }
 function ceSendState(room) {
   const g = room.ce;
@@ -140,6 +151,8 @@ function ceSendState(room) {
     }));
   });
 }
+const cur = room.players[room.ce.turnIdx];
+if (cur && cur.isBot) runCpuTurn(room);
 
 /* ---------------- Bingo ---------------- */
 function bingoRangeSet() { return new Set(Array.from({ length: 75 }, (_, i) => i + 1)); }
@@ -324,7 +337,58 @@ function startGame(room) {
     sendChat(room, 'Server', 'Blackjack started.');
   }
 }
+function nextConnectedIdx(room, startIdx) {
+  const n = room.players.length;
+  let idx = ((startIdx % n) + n) % n;
+  let tries = 0;
+  while (tries < n) {
+    const p = room.players[idx];
+    if (p && p.connected) return idx;
+    idx = (idx + 1) % n;
+    tries++;
+  }
+  return 0;
+}
 
+function runCpuTurn(room) {
+  if (room.state !== 'playing') return;
+  const p = room.players[room.ce.turnIdx];
+  if (!p || !p.isBot) return;
+
+  const delay = 700 + Math.floor(Math.random() * 900);
+
+  setTimeout(() => {
+    if (room.state !== 'playing') return;
+    const bot = room.players[room.ce.turnIdx];
+    if (!bot || !bot.isBot) return;
+
+    // Crazy Eights CPU logic
+    const playableIdx = (bot.hand || []).findIndex(c => ceCanPlay(c, room.ce.activeSuit, room.ce.activeRank));
+
+    if (playableIdx !== -1) {
+      const card = bot.hand[playableIdx];
+      let chosenSuit = card.suit;
+
+      if (card.rank === '8') {
+        const counts = { Spades: 0, Hearts: 0, Diamonds: 0, Clubs: 0 };
+        bot.hand.forEach(c => { if (counts[c.suit] !== undefined) counts[c.suit]++; });
+        chosenSuit = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Spades');
+      }
+
+      handlePlay(room, room.ce.turnIdx, playableIdx, chosenSuit);
+    } else {
+      handleDraw(room, room.ce.turnIdx);
+
+      const last = bot.hand[bot.hand.length - 1];
+      if (last && ceCanPlay(last, room.ce.activeSuit, room.ce.activeRank)) {
+        const chosenSuit = last.rank === '8' ? last.suit : last.suit;
+        handlePlay(room, room.ce.turnIdx, bot.hand.length - 1, chosenSuit);
+      } else {
+        handlePass(room, room.ce.turnIdx);
+      }
+    }
+  }, delay);
+}
 function endBingoTimer(room) {
   if (room?.bingo?.timer) { clearInterval(room.bingo.timer); room.bingo.timer = null; }
 }
@@ -335,7 +399,39 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (raw) => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
+if (msg.type === 'set_cpus') {
+  if (!myRoom || myIdx !== 0) return; // host only
 
+  const count = Math.max(0, Math.min(9, Number(msg.count || 0)));
+
+  // keep humans, remove old CPUs
+  const humans = myRoom.players.filter(p => !p.isBot);
+  const bots = [];
+
+  for (let i = 0; i < count; i++) {
+    bots.push({
+      id: humans.length + i,
+      name: `CPU ${i + 1} 🤖`,
+      ws: null,
+      connected: true,
+      isBot: true,
+      hand: []
+    });
+  }
+
+  myRoom.players = [...humans, ...bots];
+
+  // keep valid turn index if game already running
+  if (myRoom.state === 'playing' && myRoom.ce) {
+    myRoom.ce.turnIdx = nextConnectedIdx(myRoom, myRoom.ce.turnIdx);
+  }
+
+  broadcast(myRoom, lobbyPayload(myRoom));
+  if (myRoom.state === 'playing' && myRoom.gameType === 'crazy_eights') {
+    ceSendState(myRoom);
+  }
+  return;
+}
     if (msg.type === 'join') {
       const code = (msg.code || '').toUpperCase().trim();
       const name = (msg.name || 'Player').slice(0, 20).trim();
