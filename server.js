@@ -561,10 +561,11 @@ if (msg.type === 'set_cpus') {
   });
 
   ws.on('close', () => {
+    
     if (!myRoom || myIdx < 0) return;
     const room = myRoom;
     if (!room.players[myIdx]) return;
-    room.players[myIdx].connected = false;
+    if (!room.players[myIdx].isBot) room.players[myIdx].connected = false;
     sendChat(room, 'Server', `${room.players[myIdx].name} disconnected.`);
 
     // bingo fallback: if host disconnects, force auto-draw on
