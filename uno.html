@@ -215,7 +215,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   border:3px solid rgba(255,255,255,0.3);display:flex;align-items:center;
   justify-content:center;font-size:1.4rem;font-weight:900;color:white;
   box-shadow:0 4px 16px rgba(0,0,0,0.6);position:relative}
-.card-back::after{content:'UNO';font-size:.5rem;letter-spacing:1px;
+.card-back::after{content:'8s';font-size:.5rem;letter-spacing:1px;
   position:absolute;bottom:6px;color:rgba(255,255,255,.6)}
 .deck-label{font-size:.7rem;color:#778da9}
 
@@ -247,7 +247,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 .btn-pass-turn:hover{background:#537aa0}
 .btn-pass-turn:disabled{opacity:.4;cursor:not-allowed}
 
-/* UNO Card component */
+/* Standard playing card component */
 .uno-card {
   width: 64px;
   height: 92px;
@@ -500,12 +500,12 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 <!-- ── WILD CHOOSER ─────────────────────────────────────── -->
 <div id="wild-chooser">
   <div class="wild-box">
-    <h3>Choose a color</h3>
+    <h3>8 is wild — choose a suit</h3>
     <div class="wild-colors">
-      <div class="wild-btn" style="background:#ff595e" onclick="chooseWild('Red')"></div>
-      <div class="wild-btn" style="background:#8ac926" onclick="chooseWild('Green')"></div>
-      <div class="wild-btn" style="background:#1982c4" onclick="chooseWild('Blue')"></div>
-      <div class="wild-btn" style="background:#ffca3a;color:#333" onclick="chooseWild('Yellow')"></div>
+      <div class="wild-btn" style="background:#f8fbff;color:#111" onclick="chooseWild('Spades')">♠</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#d62839" onclick="chooseWild('Hearts')">♥</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#d62839" onclick="chooseWild('Diamonds')">♦</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#111" onclick="chooseWild('Clubs')">♣</div>
     </div>
   </div>
 </div>
@@ -570,8 +570,8 @@ const GAME_GUIDES = {
     name: 'Crazy Eights',
     html: `<h3>Crazy Eights</h3>
       <ul>
-        <li>Match the top card by color or value.</li>
-        <li>Wild cards let you choose the next active color.</li>
+        <li>Match the top card by suit or rank.</li>
+        <li>All 8s are wild and let you choose the next active suit.</li>
         <li>Draw if you cannot play. After drawing, play the drawn card if it fits or pass.</li>
         <li>First player to empty their hand wins.</li>
       </ul>`
@@ -827,16 +827,16 @@ function clearChat() {
 }
 
 // ── Game State ──────────────────────────────────────────
-const COL_HEX = { Red:'#ff595e', Green:'#8ac926', Blue:'#1982c4', Yellow:'#ffca3a', Wild:'#333' };
-const COL_DARK = { Red:'#c0272e', Green:'#6a9a1e', Blue:'#1162a0', Yellow:'#c09a28', Wild:'#222' };
+const SUIT_SYMBOL = { Spades:'♠', Hearts:'♥', Diamonds:'♦', Clubs:'♣' };
+const SUIT_COLOR = { Spades:'#111', Hearts:'#d62839', Diamonds:'#d62839', Clubs:'#111' };
 
 function onState(msg) {
   gameState = msg;
   if (msg.state === 'over') return;
   showScreen('game');
   renderOpponents(msg);
-  renderTopCard(msg.topCard, msg.activeColor);
-  renderHand(msg.hand, msg.activeColor, msg.activeVal, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
+  renderTopCard(msg.topCard, msg.activeSuit);
+  renderHand(msg.hand, msg.activeSuit, msg.activeRank, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
   renderStatus(msg);
   document.getElementById('deck-count').textContent = msg.deckCount;
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
@@ -873,25 +873,25 @@ function renderOpponents(state) {
   });
 }
 
-function renderTopCard(card, activeColor) {
+function renderTopCard(card, activeSuit) {
   const el    = document.getElementById('top-card');
   const valEl = document.getElementById('top-card-val');
   const tlEl  = document.getElementById('top-corner-tl');
   const lblEl = document.getElementById('active-col-label');
-  if (!card) { el.style.background='#1b2d42'; valEl.textContent='—'; return; }
-  const col   = COL_HEX[activeColor] || COL_HEX[card.col] || '#333';
-  const dark  = COL_DARK[activeColor] || '#222';
-  el.style.background = `linear-gradient(145deg,${col},${dark})`;
-  el.style.color = activeColor==='Yellow'?'#333':'#fff';
-  valEl.textContent = card.val;
-  tlEl.textContent  = card.col === 'Wild' ? '★' : card.val;
-  lblEl.textContent = activeColor + (card.col==='Wild'?' (Wild)':'');
-  lblEl.style.color = col;
+  if (!card) { el.style.background='#f8fbff'; valEl.textContent='—'; return; }
+  const suit = activeSuit || card.suit;
+  const suitColor = SUIT_COLOR[card.suit] || '#111';
+  el.style.background = 'linear-gradient(145deg,#ffffff,#dfe7f2)';
+  el.style.color = suitColor;
+  valEl.textContent = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+  tlEl.textContent  = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+  lblEl.textContent = `Active suit: ${suit} ${SUIT_SYMBOL[suit] || ''}`;
+  lblEl.style.color = SUIT_COLOR[suit] || '#e0e1dd';
 
   const badge = document.getElementById('active-color-badge');
-  badge.textContent = '● ' + activeColor;
-  badge.style.background = col;
-  badge.style.color = activeColor==='Yellow'?'#333':'#fff';
+  badge.textContent = `${SUIT_SYMBOL[suit] || '●'} ${suit}`;
+  badge.style.background = '#f8fbff';
+  badge.style.color = SUIT_COLOR[suit] || '#111';
 }
 let cpuCount = 0;
 function changeCPU(delta) {
@@ -905,44 +905,41 @@ function changeCPU(delta) {
     send({ type: 'set_cpus', count: cpuCount });
 }
 
-function renderHand(hand, activeColor, activeVal, isMyTurn, hasDrawn) {
+function renderHand(hand, activeSuit, activeRank, isMyTurn, hasDrawn) {
   const el = document.getElementById('hand-cards');
   el.innerHTML = '';
   hand.forEach((card, idx) => {
-    const playable = isMyTurn && !hasDrawn
-      ? (card.col==='Wild' || card.col===activeColor || card.val===activeVal)
-      : false;
+    const isPlayableCard = card.rank === '8' || card.suit === activeSuit || card.rank === activeRank;
+    const playable = isMyTurn && !hasDrawn ? isPlayableCard : false;
     // Also playable after draw if it matches
-    const playableAfterDraw = isMyTurn && hasDrawn && idx === hand.length-1
-      ? (card.col==='Wild' || card.col===activeColor || card.val===activeVal)
-      : false;
+    const playableAfterDraw = isMyTurn && hasDrawn && idx === hand.length-1 ? isPlayableCard : false;
     const canClick = playable || playableAfterDraw;
+    const face = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+    const suitColor = SUIT_COLOR[card.suit] || '#111';
 
     const div  = document.createElement('div');
     div.className = 'uno-card' + (canClick ? '' : ' unplayable');
-    const col  = COL_HEX[card.col] || '#333';
-    const dark = COL_DARK[card.col] || '#222';
-    div.style.background = `linear-gradient(145deg,${col},${dark})`;
-    div.style.color = card.col==='Yellow'?'#333':'#fff';
+    div.style.background = 'linear-gradient(145deg,#ffffff,#dfe7f2)';
+    div.style.color = suitColor;
     // Corners
     const tl = document.createElement('div');
     tl.className='card-corner tl';
-    tl.textContent = card.val;
+    tl.textContent = face;
     const br = document.createElement('div');
     br.className='card-corner br';
-    br.textContent = card.val;
+    br.textContent = face;
     // Center
     const inner = document.createElement('div');
     inner.className='card-inner';
-    inner.style.color = col;
+    inner.style.color = suitColor;
     const valSpan = document.createElement('span');
     valSpan.className='card-value-text';
-    valSpan.textContent = card.val==='W'?'🌈':card.val==='+4'?'+4':card.val;
+    valSpan.textContent = card.rank === '8' ? `8${SUIT_SYMBOL[card.suit] || ''}★` : face;
     inner.appendChild(valSpan);
     div.appendChild(tl);
     div.appendChild(inner);
     div.appendChild(br);
-    div.title = card.col + ' ' + card.val;
+    div.title = `${card.rank} of ${card.suit}`;
     if (canClick) {
       div.onclick = () => playCard(idx, card);
     }
@@ -969,22 +966,21 @@ function renderStatus(state) {
 
 // ── Play a card ─────────────────────────────────────────
 function playCard(idx, card) {
-  if (card.col === 'Wild') {
+  if (card.rank === '8') {
     pendingPlayIdx = idx;
     document.getElementById('wild-chooser').style.display = 'flex';
     playSound('wild');
-      } else {
-        playSound('play');
-        send({ type: 'play', cardIdx: idx, chosenColor: card.col });
-    }
-
+  } else {
+    playSound('play');
+    send({ type: 'play', cardIdx: idx, chosenSuit: card.suit });
+  }
 }
 
-function chooseWild(color) {
+function chooseWild(suit) {
   document.getElementById('wild-chooser').style.display = 'none';
   playSound('play');
   if (pendingPlayIdx !== null) {
-    send({ type:'play', cardIdx: pendingPlayIdx, chosenColor: color });
+    send({ type:'play', cardIdx: pendingPlayIdx, chosenSuit: suit });
     pendingPlayIdx = null;
   }
 }
