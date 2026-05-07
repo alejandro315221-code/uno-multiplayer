@@ -98,6 +98,24 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 .chip{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:950;color:#fff;border:5px dashed rgba(255,255,255,.75);box-shadow:0 8px 18px rgba(0,0,0,.35)}
 .chip.red{background:#e63946}.chip.blue{background:#1982c4}.chip.green{background:#2a9d8f}
 
+#game-showcase{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);z-index:18;display:none;width:min(820px,92vw);pointer-events:none}
+.showcase-table{background:radial-gradient(ellipse at 50% 38%,rgba(35,120,72,.96),rgba(9,48,31,.98));border:8px solid #5b371f;border-radius:48px;min-height:360px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.65), inset 0 0 50px rgba(255,255,255,.08);position:relative;overflow:hidden}
+.showcase-title{text-align:center;font-weight:950;font-size:1.35rem;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+.showcase-message{text-align:center;color:#dbe9f7;font-size:.88rem;margin:6px auto 12px;max-width:620px}
+.showcase-pot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-weight:900}
+.showcase-community{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
+.mini-playing-card{width:44px;height:62px;border-radius:7px;background:linear-gradient(145deg,#fff,#dfe7f2);color:#111;display:flex;align-items:center;justify-content:center;font-weight:950;border:1px solid rgba(0,0,0,.18);box-shadow:0 6px 12px rgba(0,0,0,.28)}
+.mini-playing-card.red{color:#d62839}.mini-playing-card.hidden{background:linear-gradient(135deg,#1a2d8a,#0f1f6b);color:#fff}
+.showcase-players{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:18px}
+.showcase-seat{background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:10px;color:#fff;min-height:112px}
+.showcase-seat.you{border-color:#4cc9f0;box-shadow:0 0 18px rgba(76,201,240,.25)}
+.showcase-seat-name{font-weight:850;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.showcase-seat-cards{display:flex;gap:4px;margin:8px 0;min-height:30px}
+.table-chip{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:950;color:#fff;border:5px dashed rgba(255,255,255,.78);box-shadow:0 8px 16px rgba(0,0,0,.35);margin-right:-8px;animation:chipSlide .9s ease both}
+.table-chip.red{background:#e63946}.table-chip.blue{background:#1982c4}.table-chip.green{background:#2a9d8f}.table-chip.lcr{background:#fca311;color:#0d1b2a;border-color:#0d1b2a;font-size:.72rem}
+.bingo-call{font-size:3rem;text-align:center;color:#ffca3a;font-weight:950;text-shadow:0 4px 20px rgba(0,0,0,.6)}
+@keyframes chipSlide{from{transform:translateY(-18px) scale(.75);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+
 @keyframes startupGlow{0%{background:#000}28%{background:#0b77c5}68%{background:#05070d}100%{background:#3f4651}}
 @keyframes shineSweep{0%{opacity:0;transform:translateX(-35%)}30%{opacity:1}100%{opacity:.18;transform:translateX(18%)}}
 @keyframes slideTabletop{to{transform:translateX(0)}}
@@ -397,11 +415,11 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
         autocomplete="off" style="text-transform:uppercase">
       <select id="inp-game" class="select-input" aria-label="Choose game" onchange="syncInfoButtonLabel()">
         <option value="crazy_eights">Crazy Eights</option>
-        <option value="bingo">Bingo (5x5 cards coming soon)</option>
-        <option value="blackjack_chips">Blackjack + Chips (coming soon)</option>
-        <option value="texas_holdem">Texas Hold'em (coming soon)</option>
-        <option value="yahtzee">Yahtzee (coming soon)</option>
-        <option value="left_center_right">Left Center Right (coming soon)</option>
+        <option value="bingo">Bingo</option>
+        <option value="blackjack_chips">Blackjack + Chips</option>
+        <option value="texas_holdem">Texas Hold'em</option>
+        <option value="yahtzee">Yahtzee</option>
+        <option value="left_center_right">Left Center Right</option>
       </select>
       <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
       <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room (random code)</button>
@@ -475,6 +493,8 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
       <div id="turn-label">Waiting…</div>
       <div id="active-color-badge">—</div>
     </div>
+
+    <div id="game-showcase"></div>
   </div>
 
   <!-- Player hand at bottom -->
@@ -578,7 +598,7 @@ const GAME_GUIDES = {
   },
   bingo: {
     name: 'Bingo',
-    html: `<h3>Bingo — upgraded plan</h3>
+    html: `<h3>Bingo</h3>
       <div class="bingo-preview" aria-label="Sample Bingo card">
         <div class="bingo-cell">B7</div><div class="bingo-cell">I18</div><div class="bingo-cell">N33</div><div class="bingo-cell">G52</div><div class="bingo-cell">O70</div>
         <div class="bingo-cell">B2</div><div class="bingo-cell">I24</div><div class="bingo-cell">N41</div><div class="bingo-cell">G48</div><div class="bingo-cell">O63</div>
@@ -834,15 +854,91 @@ function onState(msg) {
   gameState = msg;
   if (msg.state === 'over') return;
   showScreen('game');
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
+
+  if ((msg.gameType || 'crazy_eights') !== 'crazy_eights') {
+    renderShowcaseState(msg);
+    syncGameplayMusic(msg.state);
+    return;
+  }
+
+  document.getElementById('center').style.display = 'flex';
+  document.getElementById('game-showcase').style.display = 'none';
+  document.getElementById('hand-area').style.display = 'flex';
+  document.getElementById('hand-label').textContent = 'YOUR HAND';
+  document.getElementById('btn-draw').style.display = '';
+  document.getElementById('btn-pass').style.display = '';
   renderOpponents(msg);
   renderTopCard(msg.topCard, msg.activeSuit);
   renderHand(msg.hand, msg.activeSuit, msg.activeRank, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
   renderStatus(msg);
   document.getElementById('deck-count').textContent = msg.deckCount;
-  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
-  const hostChatClearBtn = document.getElementById('chat-clear-host');
-  if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
   syncGameplayMusic(msg.state);
+}
+
+function cardFace(card) {
+  if (!card || card.hidden) return '🂠';
+  return `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+}
+
+function cardClass(card) {
+  if (!card || card.hidden) return 'mini-playing-card hidden';
+  return 'mini-playing-card' + ((card.suit === 'Hearts' || card.suit === 'Diamonds') ? ' red' : '');
+}
+
+function chipHtml(amount, kind = 'casino') {
+  if (kind === 'lcr') return '<span class="table-chip lcr">LCR</span>'.repeat(Math.max(0, amount || 0));
+  const color = amount >= 500 ? 'green' : amount >= 100 ? 'blue' : 'red';
+  return `<span class="table-chip ${color}">${amount}</span>`;
+}
+
+function renderShowcaseState(msg) {
+  const showcase = document.getElementById('game-showcase');
+  const center = document.getElementById('center');
+  const handArea = document.getElementById('hand-area');
+  center.style.display = 'none';
+  showcase.style.display = 'block';
+  handArea.style.display = 'flex';
+  document.getElementById('hand-label').textContent = 'TABLE VIEW';
+  document.getElementById('hand-cards').innerHTML = '';
+  document.getElementById('btn-draw').style.display = 'none';
+  document.getElementById('btn-pass').style.display = 'none';
+  document.getElementById('opponents').innerHTML = '';
+  document.getElementById('turn-label').textContent = prettyGameName(msg.gameType);
+  document.getElementById('turn-label').style.color = '#4cc9f0';
+  document.getElementById('active-color-badge').textContent = msg.message || 'Table is live';
+
+  const players = msg.players || [];
+  const title = prettyGameName(msg.gameType);
+  const community = (msg.community || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+  const dealerCards = msg.dealer?.cards ? msg.dealer.cards.map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('') : '';
+  const isLcr = msg.gameType === 'left_center_right';
+  const potLabel = isLcr ? `${msg.centerChips || 0} center` : `$${msg.pot || 0} pot`;
+
+  const seats = players.map(p => {
+    const cards = (p.cards || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+    const chips = isLcr ? chipHtml(p.chips || 0, 'lcr') : chipHtml(p.bet || p.chips || 0);
+    return `<div class="showcase-seat ${p.isYou ? 'you' : ''}">
+      <div class="showcase-seat-name">${escHtml(p.name)}${p.isYou ? ' • You' : ''}</div>
+      <div class="showcase-seat-cards">${cards}</div>
+      <div>${chips}</div>
+      <div style="font-size:.75rem;color:#c7d7e8;margin-top:6px">${isLcr ? `${p.chips || 0} LCR chips` : `$${p.chips || 0} stack${p.bet ? ` • $${p.bet} bet` : ''}`}</div>
+    </div>`;
+  }).join('');
+
+  const bingo = msg.gameType === 'bingo' ? `<div class="bingo-call">${msg.calledNumber || 'B-7'}</div><div class="mark-callout">MARK YOUR CARDS!</div>` : '';
+
+  showcase.innerHTML = `<div class="showcase-table">
+    <div class="showcase-title">${title}</div>
+    <div class="showcase-message">${escHtml(msg.message || '')}</div>
+    ${dealerCards ? `<div style="text-align:center;color:#dbe9f7;font-weight:800">Dealer</div><div class="showcase-community">${dealerCards}</div>` : ''}
+    ${community ? `<div style="text-align:center;color:#dbe9f7;font-weight:800">Community Cards</div><div class="showcase-community">${community}</div>` : ''}
+    ${bingo}
+    <div class="showcase-pot">${isLcr ? chipHtml(msg.centerChips || 0, 'lcr') : chipHtml(msg.pot || 25)}<div>${potLabel}</div></div>
+    <div class="showcase-players">${seats}</div>
+  </div>`;
 }
 
 function renderOpponents(state) {
