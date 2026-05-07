@@ -47,9 +47,6 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   color:#9fb4cb;margin-top:8px;transition:all .15s}
 .btn-secondary:hover{background:#415a77;color:#e0e1dd}
 .join-err{color:#ff595e;font-size:.85rem;margin-top:6px;min-height:1.1em}
-.audio-unlock{display:none;margin-top:12px;padding:10px 12px;border:1px solid rgba(76,201,240,.45);border-radius:12px;background:rgba(76,201,240,.12);color:#dff8ff;font-size:.86rem}
-.audio-unlock.show{display:block;animation:fadeIn .2s ease-out both}
-.audio-unlock button{margin-top:8px;width:100%;padding:9px 10px;border-radius:9px;border:none;background:#4cc9f0;color:#06101a;font-weight:800;cursor:pointer}
 .select-input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #415a77;background:#1b2d42;color:#e0e1dd;font-size:1rem;margin-bottom:12px;outline:none}
 
 #screen-lobby{position:fixed;inset:0;display:none;flex-direction:column;
@@ -427,10 +424,6 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
       <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
       <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room (random code)</button>
       <button class="btn-secondary" id="btn-game-info" onclick="openInfoForSelectedGame()">ℹ️ How to Play</button>
-      <div class="audio-unlock" id="audio-unlock" role="status" aria-live="polite">
-        Your browser is waiting for permission before playing the startup sound.
-        <button type="button" onclick="unlockAudioAndPlayStartup()">🔊 Enable Startup Sound</button>
-      </div>
       <div class="join-err" id="join-err"></div>
     </div>
   </div>
@@ -590,9 +583,6 @@ let selectedGame = 'crazy_eights';
 let roomGameplayMusicEnabled = false;
 let musicMuted = false;
 let sfxMuted = false;
-let sharedAudioContext = null;
-let startupSoundPlayed = false;
-let startupSoundBlocked = false;
 const MUSIC_TRACKS = ['/card-table-swing.mp3','/in-the-lobby.mp3','/pass-the-chips.mp3','/game-in-progress.mp3','/dealing-the-cards.mp3'];
 let lastTrackIdx = -1;
 
@@ -1304,91 +1294,18 @@ if (!chatOpen) {
     }
 }
 
-function getAudioContext() {
-  const AudioCtor = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtor) return null;
-  if (!sharedAudioContext) sharedAudioContext = new AudioCtor();
-  return sharedAudioContext;
-}
-
-function setStartupAudioPrompt(visible) {
-  startupSoundBlocked = visible;
-  const prompt = document.getElementById('audio-unlock');
-  if (prompt) prompt.classList.toggle('show', visible && !startupSoundPlayed);
-}
-
-function playStartupChime() {
-  if (sfxMuted || startupSoundPlayed) return Promise.resolve(false);
-  const ctx = getAudioContext();
-  if (!ctx) return Promise.resolve(false);
-
-  const begin = () => {
-    const notes = [392, 523.25, 659.25];
-    notes.forEach((frequency, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const start = ctx.currentTime + i * 0.11;
-      osc.type = i === 2 ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(frequency, start);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.11, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.26);
-    });
-    startupSoundPlayed = true;
-    setStartupAudioPrompt(false);
-    return true;
-  };
-
-  if (ctx.state === 'suspended') {
-    return ctx.resume().then(begin);
-  }
-  return Promise.resolve(begin());
-}
-
+// iPhone Audio "Wake Up" Trick:
+// This "unlocks" the speakers as soon as you tap ANY button (like Join)
 function playStartupSound() {
-  if (sfxMuted || startupSoundPlayed) return Promise.resolve(false);
   const sound = document.getElementById('startup-sound');
-  if (!sound) return playStartupChime();
-
-  sound.muted = false;
-  sound.volume = 0.85;
-  sound.currentTime = 0;
-
-  return sound.play()
-    .then(() => {
-      startupSoundPlayed = true;
-      setStartupAudioPrompt(false);
-      return true;
-    })
-    .catch(() => playStartupChime())
-    .catch(() => {
-      setStartupAudioPrompt(true);
-      return false;
-    });
+  if (sound) sound.play().catch(() => {});
 }
 
-function unlockAudioAndPlayStartup() {
-  const ctx = getAudioContext();
-  const unlocked = ctx && ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
-  return unlocked.then(() => playStartupSound());
-}
-
-function armStartupAudioFallback() {
-  ['pointerdown', 'keydown', 'touchstart'].forEach(eventName => {
-    document.addEventListener(eventName, unlockAudioAndPlayStartup, { once: true, passive: true });
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  playStartupSound().then(played => {
-    if (!played && !startupSoundPlayed) setStartupAudioPrompt(true);
-  });
-  armStartupAudioFallback();
-});
+document.addEventListener('click', function() {
+    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (tempCtx.state === 'suspended') tempCtx.resume();
+    playStartupSound();
+}, { once: true });
 
 
 function escHtml(s) {
