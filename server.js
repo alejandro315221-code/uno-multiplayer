@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const PROFANITY_LIST = require('./profanity-list');
 const PORT = process.env.PORT || 3000;
 
 // ── HTTP server: serve uno.html + assets ─────────────────────
@@ -14,7 +15,7 @@ const httpServer = http.createServer((req, res) => {
     fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); res.end('Not found'); return; }
         const ext = path.extname(filePath);
-        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png' };
+        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml' };
         res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
         res.end(data);
     });
@@ -44,6 +45,10 @@ function makeRoom(code) {
         activeVal: '',
         hasDrawn: false,
         winner: null,
+        gameType: 'crazy_eights',
+        chatFilterEnabled: false,
+        hostCanClearChat: false,
+        gameplayMusicEnabled: false,
     };
 }
 
@@ -125,12 +130,24 @@ function sendState(room) {
             hasDrawn: room.hasDrawn,
             state: room.state,
             winner: room.winner,
+            gameplayMusicEnabled: room.gameplayMusicEnabled,
+            gameType: room.gameType,
         }));
     });
 }
 
+function filterChatText(text) {
+    let safe = String(text || '');
+    for (const word of PROFANITY_LIST) {
+        const re = new RegExp(`\\b${word}\\b`, 'gi');
+        safe = safe.replace(re, (m) => '*'.repeat(m.length));
+    }
+    return safe;
+}
+
 function sendChat(room, from, text) {
-    broadcast(room, { type:'chat', from, text });
+    const safeText = room.chatFilterEnabled && from !== 'Server' ? filterChatText(text) : text;
+    broadcast(room, { type:'chat', from, text: safeText });
 }
 
 function nextTurn(room, steps=1) {
@@ -306,7 +323,11 @@ wss.on('connection', (ws) => {
             broadcast(myRoom, { 
                 type: 'lobby', 
                 players: myRoom.players.map(p => p.name), 
-                hostName: myRoom.players[0].name 
+                hostName: myRoom.players[0].name,
+                chatFilterEnabled: myRoom.chatFilterEnabled,
+                hostCanClearChat: myRoom.hostCanClearChat,
+                gameType: myRoom.gameType,
+                gameplayMusicEnabled: myRoom.gameplayMusicEnabled
             });
             return;
         }
@@ -322,6 +343,7 @@ wss.on('connection', (ws) => {
 
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
+            if (room.players.length === 0 && msg.gameType) room.gameType = msg.gameType;
             const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
             
             if (existingPlayer) {
@@ -352,21 +374,43 @@ wss.on('connection', (ws) => {
                 name, 
                 yourIdx: myIdx, 
                 isHost: myIdx === 0, 
-                playerCount: room.players.length 
+                playerCount: room.players.length,
+                gameType: room.gameType,
+                chatFilterEnabled: room.chatFilterEnabled,
+                hostCanClearChat: room.hostCanClearChat,
+                gameplayMusicEnabled: room.gameplayMusicEnabled
             }));
             sendChat(room, 'Server', `${name} joined.`);
             broadcast(room, { 
                 type: 'lobby', 
                 players: room.players.map(p => p.name), 
-                hostName: room.players[0].name 
+                hostName: room.players[0].name,
+                chatFilterEnabled: room.chatFilterEnabled,
+                hostCanClearChat: room.hostCanClearChat,
+                gameType: room.gameType,
+                gameplayMusicEnabled: room.gameplayMusicEnabled
             });
             if (room.state === 'playing') sendState(room);
             return;
         }
 
+        if (msg.type === 'set_room_options') {
+            if (myIdx !== 0 || !myRoom) return;
+            myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
+            myRoom.hostCanClearChat = !!msg.hostCanClearChat;
+            myRoom.gameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p => p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Host clear chat ${myRoom.hostCanClearChat ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}.`);
+            return;
+        }
+
         if (msg.type === 'start') {
-            if (myIdx !== 0 || !myRoom) return; // FIXED: Added myRoom check
-            startGame(myRoom); // FIXED: Changed room to myRoom
+            if (myIdx !== 0 || !myRoom) return;
+            if (myRoom.gameType !== 'crazy_eights') {
+                ws.send(JSON.stringify({ type:'error', msg:`${myRoom.gameType.replaceAll('_',' ')} is coming soon. Please pick Crazy Eights for now.` }));
+                return;
+            }
+            startGame(myRoom);
             return;
         }
 
@@ -374,12 +418,18 @@ wss.on('connection', (ws) => {
         if (msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
         if (msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
         if (msg.type === 'chat') { sendChat(myRoom, myRoom.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
+        if (msg.type === 'clear_chat') {
+            if (!myRoom || myIdx !== 0 || !myRoom.hostCanClearChat) return;
+            broadcast(myRoom, { type:'chat_cleared', by: myRoom.players[myIdx].name });
+            sendChat(myRoom, 'Server', `${myRoom.players[myIdx].name} cleared chat.`);
+            return;
+        }
         
         if (msg.type === 'restart') {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
             myRoom.players.forEach(p => { p.hand = []; });
-            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name });
+            broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
             return;
         }
     });
@@ -401,7 +451,7 @@ wss.on('connection', (ws) => {
                 delete rooms[room.code];
                 return;
             }
-            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name });
+            broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name, chatFilterEnabled: room.chatFilterEnabled, hostCanClearChat: room.hostCanClearChat, gameType: room.gameType, gameplayMusicEnabled: room.gameplayMusicEnabled });
             if (room.state === 'playing') sendState(room);
         }
     });
