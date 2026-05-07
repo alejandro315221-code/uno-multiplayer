@@ -15,7 +15,7 @@ const httpServer = http.createServer((req, res) => {
     fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); res.end('Not found'); return; }
         const ext = path.extname(filePath);
-        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png' };
+        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml' };
         res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
         res.end(data);
     });
@@ -131,6 +131,7 @@ function sendState(room) {
             state: room.state,
             winner: room.winner,
             gameplayMusicEnabled: room.gameplayMusicEnabled,
+            gameType: room.gameType,
         }));
     });
 }
@@ -374,7 +375,10 @@ wss.on('connection', (ws) => {
                 yourIdx: myIdx, 
                 isHost: myIdx === 0, 
                 playerCount: room.players.length,
-                gameType: room.gameType
+                gameType: room.gameType,
+                chatFilterEnabled: room.chatFilterEnabled,
+                hostCanClearChat: room.hostCanClearChat,
+                gameplayMusicEnabled: room.gameplayMusicEnabled
             }));
             sendChat(room, 'Server', `${name} joined.`);
             broadcast(room, { 

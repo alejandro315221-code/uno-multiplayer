@@ -316,12 +316,12 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     right: -2px;
     width: 10px;
     height: 10px;
-    background-color: #ff595e; /* Red color */
+    background-color: #ff595e;
     border: 1px solid white;
     border-radius: 50%;
-    display: none; /* Starts hidden */
+    display: none;
     z-index: 100;
-  /* Add this below your #chat-dot styles */
+}
 #chat-dot.active {
   display: block;
   animation: pulse-red 1.5s infinite;
@@ -331,7 +331,6 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 89, 94, 0.7); }
   70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 89, 94, 0); }
   100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 89, 94, 0); }
-}
 }
 </style>
 </head>
@@ -345,6 +344,13 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     <input id="inp-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
     <input id="inp-room" type="text" placeholder="Room code (e.g. PIZZA)" maxlength="12"
       autocomplete="off" style="text-transform:uppercase">
+    <select id="inp-game" class="select-input" aria-label="Choose game">
+      <option value="crazy_eights">Crazy Eights</option>
+      <option value="blackjack_chips">Blackjack (coming soon)</option>
+      <option value="bingo">Bingo (coming soon)</option>
+      <option value="yahtzee">Yahtzee (coming soon)</option>
+      <option value="left_center_right">Left Center Right (coming soon)</option>
+    </select>
     <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
     <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room (random code)</button>
     <div class="join-err" id="join-err"></div>
@@ -524,7 +530,8 @@ function joinRoom() {
   const code = document.getElementById('inp-room').value.trim().toUpperCase();
   if (!name) { showJoinErr('Enter your name'); return; }
   if (!code) { showJoinErr('Enter a room code'); return; }
-  selectedGame = document.getElementById('inp-game').value || 'crazy_eights';
+  const gameSelect = document.getElementById('inp-game');
+  selectedGame = gameSelect ? gameSelect.value : 'crazy_eights';
   myName = name; myRoom = code;
   send({ type:'join', name, code, gameType: selectedGame });
 }
@@ -544,6 +551,10 @@ function onJoined(msg) {
   myIdx  = msg.yourIdx;
   isHost = msg.isHost;
   myRoom = msg.code;
+  selectedGame = msg.gameType || selectedGame;
+  roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomHostCanClearChat = !!msg.hostCanClearChat;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
   showScreen('lobby');
   document.getElementById('lby-code').textContent = msg.code;
   document.getElementById('lby-code-big').textContent = msg.code;
@@ -556,11 +567,13 @@ function onLobby(msg) {
   showScreen('lobby');
   document.getElementById('lby-code').textContent = myRoom;
   document.getElementById('lby-code-big').textContent = myRoom;
-  document.getElementById('lby-game').textContent = prettyGameName(msg.gameType || selectedGame);
+  selectedGame = msg.gameType || selectedGame;
+  document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
 
   const ul = document.getElementById('lby-players');
   ul.innerHTML = '';
-  msg.players.forEach((name, i) => {
+  const players = msg.players || [];
+  players.forEach((name, i) => {
     const li = document.createElement('li');
     li.textContent = name;
     if (name === msg.hostName) li.classList.add('host');
@@ -579,10 +592,17 @@ function onLobby(msg) {
   if (hostChatClearBtn) hostChatClearBtn.style.display = (isHost && roomHostCanClearChat) ? 'inline-block' : 'none';
   document.getElementById('opt-game-music').checked = roomGameplayMusicEnabled;
   document.getElementById('opt-game-music').disabled = !isHost;
-  const canStart = isHost && msg.players.length >= 2;
+
+  const cpuControls = document.getElementById('cpu-controls');
+  if (cpuControls) cpuControls.style.display = isHost ? 'block' : 'none';
+  cpuCount = players.filter(name => /^CPU \d+ 🤖$/.test(name)).length;
+  const cpuCountEl = document.getElementById('cpu-count');
+  if (cpuCountEl) cpuCountEl.textContent = cpuCount;
+
+  const canStart = isHost && players.length >= 2;
   document.getElementById('btn-start').disabled = !canStart;
   document.getElementById('lby-hint').textContent = isHost
-    ? (msg.players.length < 2 ? 'Waiting for at least 2 players…' : 'Ready! Press Start.')
+    ? (players.length < 2 ? 'Waiting for at least 2 players…' : 'Ready! Press Start.')
     : 'Waiting for the host to start…';
 }
 
@@ -805,7 +825,13 @@ function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chat-panel').classList.toggle('open', chatOpen);
   document.getElementById('chat-icon').textContent = chatOpen ? '✕' : '💬';
-if (chatOpen) document.getElementById('chat-dot').style.display = 'none';
+if (chatOpen) {
+    const dot = document.getElementById('chat-dot');
+    if (dot) {
+      dot.style.display = 'none';
+      dot.classList.remove('active');
+    }
+  }
 }
 
 function sendChat() {
@@ -914,7 +940,10 @@ function onChat(msg) {
 
 if (!chatOpen) {
   const dot = document.getElementById('chat-dot');
-  if (dot) dot.style.display = 'block';
+  if (dot) {
+    dot.style.display = 'block';
+    dot.classList.add('active');
+  }
 }
 
     }
