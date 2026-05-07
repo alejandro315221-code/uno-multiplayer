@@ -1,5 +1,5 @@
 // ============================================================
-// UNO Multiplayer Server — Node.js + ws
+// Tabletop Online Server — Node.js + ws
 // Fixed for: WebSocket Reference Errors, CPU Logic, and Start Crashes
 // ============================================================
 const http = require('http');
@@ -15,7 +15,7 @@ const httpServer = http.createServer((req, res) => {
     fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); res.end('Not found'); return; }
         const ext = path.extname(filePath);
-        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml' };
+        const types = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml', '.mp3':'audio/mpeg', '.ogg':'audio/ogg', '.wav':'audio/wav' };
         res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
         res.end(data);
     });
@@ -24,8 +24,8 @@ const httpServer = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server: httpServer });
 
 // ── Game constants ───────────────────────────────────────────
-const COLORS = ['Red','Green','Blue','Yellow'];
-const VALUES = ['0','1','2','3','4','5','6','7','8','9','S','R','+2'];
+const SUITS = ['Spades','Hearts','Diamonds','Clubs'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 
@@ -41,28 +41,24 @@ function makeRoom(code) {
         discard: [],
         turnIdx: 0,
         dir: 1,
-        activeColor: '',
-        activeVal: '',
+        activeSuit: '',
+        activeRank: '',
         hasDrawn: false,
         winner: null,
         gameType: 'crazy_eights',
         chatFilterEnabled: false,
         hostCanClearChat: false,
         gameplayMusicEnabled: false,
+        tableData: null,
     };
 }
 
 function buildDeck() {
     const deck = [];
-    for (const col of COLORS) {
-        for (const val of VALUES) {
-            deck.push({ col, val });
-            if (val !== '0') deck.push({ col, val });
+    for (const suit of SUITS) {
+        for (const rank of RANKS) {
+            deck.push({ suit, rank });
         }
-    }
-    for (let i = 0; i < 4; i++) {
-        deck.push({ col:'Wild', val:'W' });
-        deck.push({ col:'Wild', val:'+4' });
     }
     return shuffle(deck);
 }
@@ -89,8 +85,8 @@ function draw(room, n=1) {
     return cards;
 }
 
-function canPlay(card, activeColor, activeVal) {
-    return card.col === 'Wild' || card.col === activeColor || card.val === activeVal;
+function canPlay(card, activeSuit, activeRank) {
+    return card.rank === '8' || card.suit === activeSuit || card.rank === activeRank;
 }
 
 function broadcast(room, msg) {
@@ -121,8 +117,8 @@ function sendState(room) {
             hand: p.hand,
             others,
             topCard: top || null,
-            activeColor: room.activeColor,
-            activeVal: room.activeVal,
+            activeSuit: room.activeSuit,
+            activeRank: room.activeRank,
             turnIdx: room.turnIdx,
             yourIdx: idx,
             deckCount: room.deck.length,
@@ -143,6 +139,18 @@ function filterChatText(text) {
         safe = safe.replace(re, (m) => '*'.repeat(m.length));
     }
     return safe;
+}
+
+
+function prettyGameName(gameType) {
+    return ({
+        crazy_eights: 'Crazy Eights',
+        bingo: 'Bingo',
+        blackjack_chips: 'Blackjack + Chips',
+        texas_holdem: "Texas Hold'em",
+        yahtzee: 'Yahtzee',
+        left_center_right: 'Left Center Right',
+    })[gameType] || String(gameType || 'Unknown game').replaceAll('_', ' ');
 }
 
 function sendChat(room, from, text) {
@@ -167,27 +175,26 @@ function nextTurn(room, steps=1) {
     }
 }
 
-function handlePlay(room, playerIdx, cardIdx, chosenColor) {
+function handlePlay(room, playerIdx, cardIdx, chosenSuit) {
     if (room.state !== 'playing') return;
     if (playerIdx !== room.turnIdx) return;
     const player = room.players[playerIdx];
     const card = player.hand[cardIdx];
     if (!card) return;
 
-    if (!canPlay(card, room.activeColor, room.activeVal)) {
+    if (!canPlay(card, room.activeSuit, room.activeRank)) {
         if (player.ws) player.ws.send(JSON.stringify({ type:'error', msg:"Can't play that card!" }));
         return;
     }
 
     player.hand.splice(cardIdx, 1);
     room.discard.push(card);
-    let newColor = card.col === 'Wild' ? chosenColor : card.col;
-    let newVal = card.val;
-    room.activeColor = newColor;
-    room.activeVal = newVal;
-    
-    sendChat(room, "Server", `${player.name} played ${card.val === 'W' ? 'Wild' : card.val === '+4' ? 'Wild +4' : card.col + ' ' + card.val}${card.col==='Wild' ? ' → chose '+newColor : ''}`);
-    
+    const newSuit = card.rank === '8' ? (SUITS.includes(chosenSuit) ? chosenSuit : card.suit) : card.suit;
+    room.activeSuit = newSuit;
+    room.activeRank = card.rank;
+
+    sendChat(room, 'Server', `${player.name} played ${card.rank} of ${card.suit}${card.rank === '8' ? ' → chose ' + newSuit : ''}`);
+
     if (player.hand.length === 0) {
         room.state = 'over';
         room.winner = player.name;
@@ -195,28 +202,10 @@ function handlePlay(room, playerIdx, cardIdx, chosenColor) {
         sendState(room);
         return;
     }
-    
-    if (player.hand.length === 1) sendChat(room, "Server", `${player.name} only has one card left!`);
 
-    const n = room.players.length;
-    if (newVal === 'S') {
-        nextTurn(room, 2); 
-    } else if (newVal === 'R') {
-        room.dir *= -1;
-        nextTurn(room, n > 2 ? 1 : 2);
-    } else if (newVal === '+2') {
-        const nextP = ((room.turnIdx + room.dir) % n + n) % n;
-        room.players[nextP].hand.push(...draw(room, 2));
-        sendChat(room, 'Server', `${room.players[nextP].name} draws 2!`);
-        nextTurn(room, 2);
-    } else if (newVal === '+4') {
-        const nextP = ((room.turnIdx + room.dir) % n + n) % n;
-        room.players[nextP].hand.push(...draw(room, 4));
-        sendChat(room, 'Server', `${room.players[nextP].name} draws 4!`);
-        nextTurn(room, 2);
-    } else {
-        nextTurn(room);
-    }
+    if (player.hand.length === 1) sendChat(room, 'Server', `${player.name} has one card left!`);
+
+    nextTurn(room);
     sendState(room);
 }
 
@@ -241,8 +230,105 @@ function handlePass(room, playerIdx) {
     sendState(room);
 }
 
+
+function makeChipPlayers(room, startingChips) {
+    return room.players.map((p, idx) => ({
+        name: p.name,
+        connected: p.connected,
+        isYou: false,
+        seat: idx,
+        chips: startingChips,
+        bet: 0,
+        cards: [],
+    }));
+}
+
+function sendTableState(room) {
+    const data = room.tableData || {};
+    room.players.forEach((p, idx) => {
+        if (!p.ws || p.ws.readyState !== 1) return;
+        const players = (data.players || []).map((op, oi) => ({ ...op, isYou: oi === idx }));
+        p.ws.send(JSON.stringify({
+            type: 'state',
+            gameType: room.gameType,
+            state: room.state,
+            yourIdx: idx,
+            players,
+            dealer: data.dealer || null,
+            community: data.community || [],
+            pot: data.pot || 0,
+            centerChips: data.centerChips || 0,
+            calledNumber: data.calledNumber || null,
+            message: data.message || '',
+            gameplayMusicEnabled: room.gameplayMusicEnabled,
+        }));
+    });
+}
+
+function startTableGame(room) {
+    room.state = 'playing';
+    room.deck = buildDeck();
+    room.discard = [];
+    room.players.forEach(p => {
+        p.hand = [];
+        p.connected = true;
+    });
+
+    if (room.gameType === 'blackjack_chips') {
+        const players = makeChipPlayers(room, 500).map(p => ({
+            ...p,
+            bet: 25,
+            chips: 475,
+            cards: [room.deck.pop(), room.deck.pop()],
+        }));
+        room.tableData = {
+            players,
+            dealer: { cards: [room.deck.pop(), { hidden: true }] },
+            pot: players.reduce((sum, p) => sum + p.bet, 0),
+            message: 'Blackjack table is live — chips are on the felt.',
+        };
+    } else if (room.gameType === 'texas_holdem') {
+        const players = makeChipPlayers(room, 1000).map((p, idx) => ({
+            ...p,
+            bet: idx === 0 ? 10 : idx === 1 ? 20 : 0,
+            chips: 1000 - (idx === 0 ? 10 : idx === 1 ? 20 : 0),
+            cards: [{ hidden: true }, { hidden: true }],
+        }));
+        room.tableData = {
+            players,
+            community: [room.deck.pop(), room.deck.pop(), room.deck.pop()],
+            pot: players.reduce((sum, p) => sum + p.bet, 0),
+            message: 'Texas Hold’em table is live — blinds are posted and chips move into the pot.',
+        };
+    } else if (room.gameType === 'left_center_right') {
+        room.tableData = {
+            players: makeChipPlayers(room, 3),
+            centerChips: 0,
+            message: 'LCR table is live — pass LCR chips left, center, and right around the table.',
+        };
+    } else if (room.gameType === 'bingo') {
+        room.tableData = {
+            players: makeChipPlayers(room, 0),
+            calledNumber: 'B-7',
+            message: 'Bingo table is live — MARK YOUR CARDS!',
+        };
+    } else {
+        room.tableData = {
+            players: makeChipPlayers(room, 0),
+            message: `${prettyGameName(room.gameType)} table is live.`,
+        };
+    }
+
+    sendChat(room, 'Server', `${prettyGameName(room.gameType)} started.`);
+    sendTableState(room);
+}
+
 function startGame(room) {
     if (room.players.length < 2) return;
+    if (room.gameType !== 'crazy_eights') {
+        startTableGame(room);
+        return;
+    }
     room.state = 'playing';
     room.deck = buildDeck();
     room.discard = [];
@@ -256,15 +342,15 @@ function startGame(room) {
     });
     
     let startCard;
-    do { 
-        startCard = room.deck.pop(); 
-    } while (['W','+4','S','+2','R'].includes(startCard.val));
-    
+    do {
+        startCard = room.deck.pop();
+    } while (startCard.rank === '8');
+
     room.discard.push(startCard);
-    room.activeColor = startCard.col;
-    room.activeVal = startCard.val;
+    room.activeSuit = startCard.suit;
+    room.activeRank = startCard.rank;
     
-    sendChat(room, 'Server', 'Game started! ' + room.players.map(p=>p.name).join(', '));
+    sendChat(room, 'Server', 'Crazy Eights started with a standard 52-card deck. All 8s are wild! ' + room.players.map(p=>p.name).join(', '));
     sendState(room);
 }
 
@@ -276,24 +362,24 @@ function runBotTurn(room) {
     const delayMs = thinkingTime * 1000;
 
     setTimeout(() => {
-        let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeColor, room.activeVal));
+        let playIdx = botPlayer.hand.findIndex(c => canPlay(c, room.activeSuit, room.activeRank));
         if (playIdx !== -1) {
             const card = botPlayer.hand[playIdx];
-            let chosenColor = room.activeColor;
-            
-            if (card.col === 'Wild') {
-                const counts = {};
-                botPlayer.hand.forEach(c => { 
-                    if (c.col !== 'Wild') counts[c.col] = (counts[c.col] || 0) + 1; 
+            let chosenSuit = room.activeSuit;
+
+            if (card.rank === '8') {
+                const counts = { Spades: 0, Hearts: 0, Diamonds: 0, Clubs: 0 };
+                botPlayer.hand.forEach(c => {
+                    if (counts[c.suit] !== undefined) counts[c.suit]++;
                 });
-                chosenColor = Object.keys(counts).reduce((a, b) => (counts[a] || 0) > (counts[b] || 0) ? a : b, 'Red');
+                chosenSuit = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Spades');
             }
-            handlePlay(room, room.turnIdx, playIdx, chosenColor);
+            handlePlay(room, room.turnIdx, playIdx, chosenSuit);
         } else {
             handleDraw(room, room.turnIdx);
             let lastCardIdx = botPlayer.hand.length - 1;
-            if (canPlay(botPlayer.hand[lastCardIdx], room.activeColor, room.activeVal)) {
-                handlePlay(room, room.turnIdx, lastCardIdx, room.activeColor);
+            if (canPlay(botPlayer.hand[lastCardIdx], room.activeSuit, room.activeRank)) {
+                handlePlay(room, room.turnIdx, lastCardIdx, room.activeSuit);
             } else {
                 handlePass(room, room.turnIdx);
             }
@@ -390,7 +476,10 @@ wss.on('connection', (ws) => {
                 gameType: room.gameType,
                 gameplayMusicEnabled: room.gameplayMusicEnabled
             });
-            if (room.state === 'playing') sendState(room);
+            if (room.state === 'playing') {
+                if (room.gameType === 'crazy_eights') sendState(room);
+                else sendTableState(room);
+            }
             return;
         }
 
@@ -406,15 +495,11 @@ wss.on('connection', (ws) => {
 
         if (msg.type === 'start') {
             if (myIdx !== 0 || !myRoom) return;
-            if (myRoom.gameType !== 'crazy_eights') {
-                ws.send(JSON.stringify({ type:'error', msg:`${myRoom.gameType.replaceAll('_',' ')} is coming soon. Please pick Crazy Eights for now.` }));
-                return;
-            }
             startGame(myRoom);
             return;
         }
 
-        if (msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenColor); return; }
+        if (msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenSuit || msg.chosenColor); return; }
         if (msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
         if (msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
         if (msg.type === 'chat') { sendChat(myRoom, myRoom.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
@@ -428,6 +513,7 @@ wss.on('connection', (ws) => {
         if (msg.type === 'restart') {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
+            myRoom.tableData = null;
             myRoom.players.forEach(p => { p.hand = []; });
             broadcast(myRoom, { type:'lobby', players: myRoom.players.map(p=>p.name), hostName: myRoom.players[0].name, chatFilterEnabled: myRoom.chatFilterEnabled, hostCanClearChat: myRoom.hostCanClearChat, gameType: myRoom.gameType, gameplayMusicEnabled: myRoom.gameplayMusicEnabled });
             return;
@@ -441,7 +527,7 @@ wss.on('connection', (ws) => {
             room.players[myIdx].connected = false;
             sendChat(room, 'Server', `${room.players[myIdx].name} disconnected.`);
             
-            if (room.state === 'playing' && room.turnIdx === myIdx) {
+            if (room.state === 'playing' && room.gameType === 'crazy_eights' && room.turnIdx === myIdx) {
                 sendChat(room, 'Server', `Skipping ${room.players[myIdx].name}'s turn...`);
                 nextTurn(room);
             }
@@ -452,9 +538,12 @@ wss.on('connection', (ws) => {
                 return;
             }
             broadcast(room, { type:'lobby', players: room.players.map(p=>p.name), hostName: room.players[0].name, chatFilterEnabled: room.chatFilterEnabled, hostCanClearChat: room.hostCanClearChat, gameType: room.gameType, gameplayMusicEnabled: room.gameplayMusicEnabled });
-            if (room.state === 'playing') sendState(room);
+            if (room.state === 'playing') {
+                if (room.gameType === 'crazy_eights') sendState(room);
+                else sendTableState(room);
+            }
         }
     });
 });
 
-httpServer.listen(PORT, () => console.log(`UNO Server running on port ${PORT}`));
+httpServer.listen(PORT, () => console.log(`Tabletop Online server running on port ${PORT}`));
