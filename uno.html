@@ -740,7 +740,13 @@ function onJoined(msg) {
 
 // ── Lobby ───────────────────────────────────────────────
 function onLobby(msg) {
-  if (gameState && gameState.state === 'playing') return; // don't clobber active game
+  gameState = null;
+  lastDiceSignature = '';
+  lastPhaseSignature = '';
+  syncGameplayMusic('lobby');
+  document.getElementById('screen-over').style.display = 'none';
+  document.getElementById('game-showcase').style.display = 'none';
+  document.getElementById('hand-cards').innerHTML = '';
   showScreen('lobby');
   document.getElementById('lby-code').textContent = myRoom;
   document.getElementById('lby-code-big').textContent = myRoom;
