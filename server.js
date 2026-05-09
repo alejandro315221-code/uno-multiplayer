@@ -32,6 +32,20 @@ const CHIP_DENOMINATIONS = [1, 5, 10, 20, 50, 100, 500];
 const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips', 'texas_holdem', 'left_center_right'];
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
+const BOT_PERSONAS = [
+    { name: 'Grog the Barbarian 🤖', personality: 'loud, brave, goofy, and obsessed with big dramatic moves' },
+    { name: 'Melf the Mage 🤖', personality: 'clever, mystical, and fond of over-explaining strategy with sparkle' },
+    { name: 'Pip the Rogue 🤖', personality: 'sneaky, playful, and always pretending every move was planned' },
+    { name: 'Nora the Navigator 🤖', personality: 'calm, upbeat, nautical, and encouraging to everyone at the table' },
+    { name: 'Bingo Bess 🤖', personality: 'cheerful, lucky, and extremely excited whenever numbers appear' },
+    { name: 'Chip McStack 🤖', personality: 'competitive, chip-counting, and full of casino-table banter' },
+    { name: 'Professor Pips 🤖', personality: 'dry, academic, and convinced every dice roll is research' },
+    { name: 'Zara the Bard 🤖', personality: 'dramatic, rhyming, and always narrating the table like a tavern song' },
+    { name: 'Byte Knight 🤖', personality: 'honorable, robotic, and proud of clean logical plays' },
+];
+const AI_CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const AI_CHAT_HISTORY_LIMIT = 16;
+const AI_CHAT_COOLDOWN_MS = 3500;
 
 // ── State ────────────────────────────────────────────────────
 let rooms = {}; 
@@ -54,6 +68,9 @@ function makeRoom(code) {
         gameplayMusicEnabled: true,
         bingoMode: 'hard',
         soundSeq: 0,
+        aiChatHistory: [],
+        aiChatPending: false,
+        lastAIChatAt: 0,
         tableData: null,
     };
 }
@@ -179,6 +196,84 @@ function markTableSound(room, sound) {
     if (!room || !room.tableData) return;
     room.soundSeq = (room.soundSeq || 0) + 1;
     room.tableData.soundEvent = { seq: room.soundSeq, sound };
+}
+
+function getBotPersona(index) {
+    return BOT_PERSONAS[index % BOT_PERSONAS.length];
+}
+
+function rememberRoomChat(room, speaker, text, role = 'user') {
+    if (!room) return;
+    room.aiChatHistory.push({ role, speaker, text: String(text || '').slice(0, 220) });
+    room.aiChatHistory = room.aiChatHistory.slice(-AI_CHAT_HISTORY_LIMIT);
+}
+
+function localBotLine(bot, action = 'move') {
+    const lines = {
+        move: ['A calculated flourish!', 'My gears say that was brilliant.', 'Your move, table friends!'],
+        play: ['Aha! A card with style!', 'I cast this card upon the table!', 'That should stir the pot.'],
+        draw: ['A tactical draw. Definitely tactical.', 'More cards, more destiny.', 'I meant to do that.'],
+        pass: ['I pass... with dignity.', 'A pause for dramatic effect.', 'I shall wait for a better moment.'],
+        bet: ['I place my chips with confidence!', 'The chips have spoken.', 'Fortune favors bold circuits!'],
+        roll: ['Rattle and roll!', 'Let the dice decide my legend!', 'Tiny cubes, mighty fate!'],
+        bingo: ['Eyes sharp, cards ready!', 'Numbers are dancing now!', 'Mark fast, friends!'],
+    };
+    const options = lines[action] || lines.move;
+    const prefix = bot?.personality?.includes('rhyming') ? 'Hear my table tale: ' : '';
+    return prefix + options[Math.floor(Math.random() * options.length)];
+}
+
+function botChat(room, bot, text, remember = true) {
+    if (!room || !bot || !text) return;
+    const line = String(text).replace(/\s+/g, ' ').trim().slice(0, 180);
+    if (!line) return;
+    sendChat(room, bot.name, line);
+    if (remember) rememberRoomChat(room, bot.name, line, 'assistant');
+}
+
+function botMoveChat(room, botOrIdx, action) {
+    const bot = typeof botOrIdx === 'number' ? room.players[botOrIdx] : botOrIdx;
+    if (!bot?.isBot) return;
+    setTimeout(() => botChat(room, bot, localBotLine(bot, action), true), 250);
+}
+
+function getOpenAIClient() {
+    if (!process.env.OPENAI_API_KEY) return null;
+    const OpenAI = require('openai');
+    return new OpenAI();
+}
+
+async function maybeRunAIChat(room, humanName, humanText) {
+    if (!room || room.aiChatPending || !room.players.some(p => p.isBot)) return;
+    if (!process.env.OPENAI_API_KEY) return;
+    const now = Date.now();
+    if (now - (room.lastAIChatAt || 0) < AI_CHAT_COOLDOWN_MS) return;
+    room.aiChatPending = true;
+    room.lastAIChatAt = now;
+    const bots = room.players.filter(p => p.isBot).map(p => ({ name: p.name, personality: p.personality || 'friendly table-game CPU' }));
+    const transcript = room.aiChatHistory.slice(-AI_CHAT_HISTORY_LIMIT).map(m => `${m.speaker}: ${m.text}`).join('\n');
+    const instructions = `You orchestrate playful CPU chat in a family-friendly Tabletop Online room. Pick exactly one CPU from this list to respond: ${bots.map(b => `${b.name} (${b.personality})`).join('; ')}. Keep the response under 22 words, react to the latest human message, do not mention being an AI model, and return JSON only like {"speaker":"CPU name","message":"short chat"}.`;
+    try {
+        const client = getOpenAIClient();
+        if (!client) return;
+        const response = await client.responses.create({
+            model: AI_CHAT_MODEL,
+            instructions,
+            input: `Game: ${prettyGameName(room.gameType)}\nRecent chat:\n${transcript}\nLatest human message from ${humanName}: ${humanText}`,
+            max_output_tokens: 90,
+        });
+        const raw = (response.output_text || '').trim();
+        let parsed = null;
+        try { parsed = JSON.parse(raw); } catch {}
+        const chosen = bots.find(b => b.name === parsed?.speaker) || bots[Math.floor(Math.random() * bots.length)];
+        const bot = room.players.find(p => p.name === chosen.name && p.isBot);
+        const message = parsed?.message || localBotLine(bot, 'move');
+        botChat(room, bot, message, true);
+    } catch (err) {
+        console.warn('AI CPU chat skipped:', err.message);
+    } finally {
+        room.aiChatPending = false;
+    }
 }
 
 function nextTurn(room, steps=1) {
@@ -641,10 +736,10 @@ function runTableBots(room) {
         autoBlackjackBots(room);
         if (data.phase === 'betting') dealBlackjackIfReady(room);
         if (data.phase === 'insurance') { data.players.forEach((p, idx) => { if (room.players[idx].isBot && p.insuranceOffered) p.insuranceOffered = false; }); if (data.players.every((p, idx) => !room.players[idx].connected || !p.insuranceOffered)) data.phase = 'player_turn'; }
-        if (data.phase === 'player_turn' && room.players[data.turnIdx]?.isBot) setTimeout(() => { if (room.tableData !== data || data.phase !== 'player_turn' || !room.players[data.turnIdx]?.isBot) return; handleBlackjackAction(room, data.turnIdx, cardValue(data.players[data.turnIdx].cards) < 16 ? 'hit' : 'stand'); }, 700);
+        if (data.phase === 'player_turn' && room.players[data.turnIdx]?.isBot) setTimeout(() => { if (room.tableData !== data || data.phase !== 'player_turn' || !room.players[data.turnIdx]?.isBot) return; const botIdx = data.turnIdx; handleBlackjackAction(room, botIdx, cardValue(data.players[botIdx].cards) < 16 ? 'hit' : 'stand'); botMoveChat(room, botIdx, 'bet'); }, 700);
     }
-    if (room.gameType === 'left_center_right' && room.players[data.turnIdx]?.isBot && !data.diceRolling) setTimeout(() => handleLcrRoll(room, data.turnIdx), 800);
-    if (room.gameType === 'texas_holdem' && ['preflop','flop','turn','river'].includes(data.phase) && room.players[data.turnIdx]?.isBot) setTimeout(() => { if (room.tableData !== data || !room.players[data.turnIdx]?.isBot) return; const p = data.players[data.turnIdx]; const toCall = Math.max(0, data.currentBet - p.roundBet); handleHoldemAction(room, data.turnIdx, toCall ? 'call' : 'check'); }, 900);
+    if (room.gameType === 'left_center_right' && room.players[data.turnIdx]?.isBot && !data.diceRolling) setTimeout(() => { const botIdx = data.turnIdx; handleLcrRoll(room, botIdx); botMoveChat(room, botIdx, 'roll'); }, 800);
+    if (room.gameType === 'texas_holdem' && ['preflop','flop','turn','river'].includes(data.phase) && room.players[data.turnIdx]?.isBot) setTimeout(() => { if (room.tableData !== data || !room.players[data.turnIdx]?.isBot) return; const p = data.players[data.turnIdx]; const toCall = Math.max(0, data.currentBet - p.roundBet); const botIdx = data.turnIdx; handleHoldemAction(room, botIdx, toCall ? 'call' : 'check'); botMoveChat(room, botIdx, 'bet'); }, 900);
 }
 
 function handleBingoDraw(room, playerIdx) {
@@ -665,7 +760,7 @@ function handleBingoDraw(room, playerIdx) {
         data.players.forEach((p, idx) => {
             if (room.players[idx]?.isBot) {
                 const card = data.bingoCards[idx];
-                if (card?.some(row => row.includes(next)) && !data.marked[idx].includes(next)) data.marked[idx].push(next);
+                if (card?.some(row => row.includes(next)) && !data.marked[idx].includes(next)) { data.marked[idx].push(next); botMoveChat(room, idx, 'bingo'); }
             }
         });
         data.message = `Number ${next} called — MARK YOUR CARDS!`;
@@ -817,14 +912,20 @@ function runBotTurn(room) {
                 });
                 chosenSuit = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'Spades');
             }
-            handlePlay(room, room.turnIdx, playIdx, chosenSuit);
+            const botIdx = room.turnIdx;
+            handlePlay(room, botIdx, playIdx, chosenSuit);
+            botMoveChat(room, botPlayer, 'play');
         } else {
-            handleDraw(room, room.turnIdx);
+            const botIdx = room.turnIdx;
+            handleDraw(room, botIdx);
+            botMoveChat(room, botPlayer, 'draw');
             let lastCardIdx = botPlayer.hand.length - 1;
             if (canPlay(botPlayer.hand[lastCardIdx], room.activeSuit, room.activeRank)) {
                 handlePlay(room, room.turnIdx, lastCardIdx, room.activeSuit);
+                botMoveChat(room, botPlayer, 'play');
             } else {
                 handlePass(room, room.turnIdx);
+                botMoveChat(room, botPlayer, 'pass');
             }
         }
     }, delayMs);
@@ -842,11 +943,13 @@ wss.on('connection', (ws) => {
             if (!myRoom || myIdx !== 0) return;
             myRoom.players = myRoom.players.filter(p => !p.isBot);
             for (let i = 0; i < msg.count; i++) {
-                myRoom.players.push({ 
-                    name: `CPU ${i + 1} 🤖`, 
-                    isBot: true, 
-                    connected: true, 
-                    hand: [] 
+                const persona = getBotPersona(i);
+                myRoom.players.push({
+                    name: persona.name,
+                    personality: persona.personality,
+                    isBot: true,
+                    connected: true,
+                    hand: []
                 });
             }
             broadcast(myRoom, lobbyPayload(myRoom));
@@ -947,7 +1050,16 @@ wss.on('connection', (ws) => {
         if (msg.type === 'lcr_roll') { handleLcrRoll(myRoom, myIdx); return; }
         if (msg.type === 'bingo_draw_next') { handleBingoDraw(myRoom, myIdx); return; }
         if (msg.type === 'bingo_mark') { handleBingoMark(myRoom, myIdx, msg.number); return; }
-        if (msg.type === 'chat') { sendChat(myRoom, myRoom.players[myIdx].name, (msg.text||'').slice(0,200)); return; }
+        if (msg.type === 'chat') {
+            const text = (msg.text||'').slice(0,200);
+            const speaker = myRoom.players[myIdx];
+            sendChat(myRoom, speaker.name, text);
+            if (!speaker.isBot) {
+                rememberRoomChat(myRoom, speaker.name, text, 'user');
+                maybeRunAIChat(myRoom, speaker.name, text);
+            }
+            return;
+        }
         if (msg.type === 'clear_chat') {
             if (!myRoom || myIdx !== 0) return;
             broadcast(myRoom, { type:'chat_cleared', by: myRoom.players[myIdx].name });
