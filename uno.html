@@ -812,7 +812,7 @@ function onLobby(msg) {
 
   const cpuControls = document.getElementById('cpu-controls');
   if (cpuControls && !isHost) cpuControls.remove();
-  cpuCount = players.filter(name => /^CPU \d+ 🤖$/.test(name)).length;
+  cpuCount = players.filter(name => /🤖$/.test(name)).length;
   const cpuCountEl = document.getElementById('cpu-count');
   if (cpuCountEl) cpuCountEl.textContent = cpuCount;
 
