@@ -104,8 +104,8 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 #game-showcase{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);z-index:18;display:none;width:min(880px,94vw);pointer-events:none;perspective:1200px}
 .showcase-table{background:radial-gradient(ellipse at 50% 38%,rgba(35,120,72,.96),rgba(9,48,31,.98));border:8px solid #5b371f;border-radius:48px;min-height:390px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.65), inset 0 0 50px rgba(255,255,255,.08);position:relative;overflow:hidden;transform:rotateX(7deg);transform-origin:center bottom}
 .showcase-title{text-align:center;font-weight:950;font-size:1.35rem;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.7)}
-.showcase-message{text-align:center;color:#dbe9f7;font-size:.88rem;margin:6px auto 12px;max-width:620px}
-.showcase-pot{position:absolute;right:30px;top:78px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-weight:900;max-width:150px;text-align:center}
+.showcase-message{text-align:center;color:#0d1b2a;background:#ffca3a;font-size:.92rem;margin:8px auto 14px;max-width:680px;padding:8px 12px;border-radius:999px;font-weight:900;box-shadow:0 8px 18px rgba(0,0,0,.25)}
+.showcase-pot{position:absolute;right:30px;top:78px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-weight:900;max-width:150px;text-align:center}.pot-counter{min-width:88px;padding:12px 14px;border-radius:16px;background:rgba(13,27,42,.88);border:2px solid #ffca3a;color:#ffca3a;font-size:1.55rem;line-height:1;box-shadow:0 10px 24px rgba(0,0,0,.35)}
 .showcase-community{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
 .mini-playing-card{width:44px;height:62px;border-radius:7px;background:linear-gradient(145deg,#fff,#dfe7f2);color:#111;display:flex;align-items:center;justify-content:center;font-weight:950;border:1px solid rgba(0,0,0,.18);box-shadow:0 6px 12px rgba(0,0,0,.28)}
 .mini-playing-card.red{color:#d62839}.mini-playing-card.hidden{background:linear-gradient(135deg,#1a2d8a,#0f1f6b);color:#fff}
@@ -116,7 +116,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 .showcase-seat-cards{display:flex;gap:4px;margin:8px 0;min-height:30px}
 .table-chip{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:950;color:#fff;border:5px dashed rgba(255,255,255,.78);box-shadow:0 8px 16px rgba(0,0,0,.35);margin-right:-8px;animation:none}
 .table-chip.red{background:#e63946}.table-chip.blue{background:#1982c4}.table-chip.green{background:#2a9d8f}.table-chip.lcr{background:#fca311;color:#0d1b2a;border-color:#0d1b2a;font-size:.72rem}
-.bingo-call{font-size:3rem;text-align:center;color:#ffca3a;font-weight:950;text-shadow:0 4px 20px rgba(0,0,0,.6)}
+.bingo-call{font-size:3rem;text-align:center;color:#ffca3a;font-weight:950;text-shadow:0 4px 20px rgba(0,0,0,.6)}.bingo-call.rolling{animation:diePop .22s ease both;color:#eef3f8}.mark-callout.live{display:inline-flex;margin:8px auto;animation:pulse-red 1.1s infinite;background:#ff595e;color:#fff;border-radius:999px;padding:7px 14px}.bingo-all-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;max-height:310px;overflow:auto;margin-top:10px}.bingo-player-card{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:8px}.bingo-player-name{font-size:.78rem;font-weight:900;color:#dbe9f7;margin-bottom:5px}.bingo-player-card .bingo-live-card{grid-template-columns:repeat(5,28px);gap:3px;margin:0 auto}.bingo-player-card .bingo-head,.bingo-player-card .bingo-live-cell{height:26px;font-size:.68rem;border-radius:5px}
 .dice-row{display:flex;gap:8px;justify-content:center;margin:10px 0}.die{width:42px;height:42px;border-radius:9px;background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:950;font-size:1.2rem;box-shadow:0 8px 16px rgba(0,0,0,.35);animation:diePop .22s ease both}.die.blank{color:#aaa;background:#eef3f8;animation:none}@keyframes diePop{0%{transform:scale(.25) rotate(-12deg);opacity:.2}70%{transform:scale(1.22) rotate(4deg)}100%{transform:scale(1);opacity:1}}.bingo-live-card{display:grid;grid-template-columns:repeat(5,44px);gap:5px;justify-content:center;margin:10px auto}.bingo-head,.bingo-live-cell{height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:950}.bingo-head{background:#4cc9f0;color:#0d1b2a}.bingo-live-cell{background:#f8fbff;color:#111;border:2px solid rgba(76,201,240,.55);cursor:pointer;pointer-events:auto}.bingo-live-cell.marked{background:#8ac926;color:#0d1b2a}.table-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.table-actions .btn-action{pointer-events:auto}.chip-bank{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:6px}
 
 @keyframes startupGlow{0%{background:#000}28%{background:#0b77c5}68%{background:#05070d}100%{background:#3f4651}}
@@ -357,6 +357,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   background:#4cc9f0;color:#0d1b2a;font-weight:700;font-size:.8rem}
 
 /* Game-over overlay */
+.global-menu-btn{position:absolute;left:10px;top:58px;z-index:45;width:auto;padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:#1982c4;color:#fff;font-weight:900;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.3)}
 #screen-over{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;
   align-items:center;justify-content:center;z-index:40;flex-direction:column;gap:16px}
 .over-box{background:#1b2d42;border:2px solid #415a77;border-radius:20px;
@@ -465,6 +466,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     <div class="lobby-options" id="host-options">
       <label><input type="checkbox" id="opt-chat-filter" onchange="sendRoomOptions()"> Enable chat filter</label>
       <label><input type="checkbox" id="opt-game-music" onchange="sendRoomOptions()"> Enable gameplay music for everyone</label>
+      <label>Bingo mode <select id="opt-bingo-mode" class="select-input" onchange="sendRoomOptions()"><option value="hard">Hard cage (no repeats)</option><option value="easy">Easy picker (repeats allowed)</option></select></label>
     </div>
     <div class="waiting-hint" id="lby-hint">Waiting for the host to start…</div>
   </div>
@@ -478,6 +480,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
       <button class="btn-secondary" id="btn-mute-music" onclick="toggleMusicMute()">Music: On</button>
       <button class="btn-secondary" id="btn-mute-sfx" onclick="toggleSfxMute()">SFX: On</button>
     </div>
+    <button id="global-back-menu" class="global-menu-btn" onclick="sendRestart()">← Back to Menu</button>
     <!-- Opponents ring -->
     <div id="opponents"></div>
 
@@ -588,6 +591,7 @@ let pendingPlayIdx = null; // card index waiting for wild color choice
 let roomChatFilterEnabled = false;
 let selectedGame = 'crazy_eights';
 let roomGameplayMusicEnabled = false;
+let roomBingoMode = 'hard';
 let musicMuted = false;
 let sfxMuted = false;
 let startupSoundPlayed = false;
@@ -596,6 +600,7 @@ const MUSIC_TRACKS = ['/card-table-swing.mp3','/in-the-lobby.mp3','/pass-the-chi
 let lastTrackIdx = -1;
 let lastDiceSignature = '';
 let lastPhaseSignature = '';
+let lastSoundSeq = 0;
 
 const GAME_GUIDES = {
   chat_room: {
@@ -732,6 +737,7 @@ function onJoined(msg) {
   selectedGame = msg.gameType || selectedGame;
   roomChatFilterEnabled = !!msg.chatFilterEnabled;
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  roomBingoMode = msg.bingoMode || roomBingoMode;
   showScreen('lobby');
   document.getElementById('lby-code').textContent = msg.code;
   document.getElementById('lby-code-big').textContent = msg.code;
@@ -743,6 +749,7 @@ function onLobby(msg) {
   gameState = null;
   lastDiceSignature = '';
   lastPhaseSignature = '';
+  lastSoundSeq = 0;
   syncGameplayMusic('lobby');
   document.getElementById('screen-over').style.display = 'none';
   document.getElementById('game-showcase').style.display = 'none';
@@ -765,6 +772,7 @@ function onLobby(msg) {
 
   roomChatFilterEnabled = !!msg.chatFilterEnabled;
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  roomBingoMode = msg.bingoMode || roomBingoMode;
   const hostOptions = document.getElementById('host-options');
   if (hostOptions && !isHost) hostOptions.remove();
   const gameSelectPanel = document.getElementById('game-select-panel');
@@ -775,8 +783,12 @@ function onLobby(msg) {
   if (chatFilter) chatFilter.checked = roomChatFilterEnabled;
   const musicOpt = document.getElementById('opt-game-music');
   if (musicOpt) musicOpt.checked = roomGameplayMusicEnabled;
+  const bingoModeOpt = document.getElementById('opt-bingo-mode');
+  if (bingoModeOpt) bingoModeOpt.value = roomBingoMode;
   const hostChatClearBtn = document.getElementById('chat-clear-host');
   if (hostChatClearBtn) hostChatClearBtn.style.display = isHost ? 'inline-block' : 'none';
+  const globalBack = document.getElementById('global-back-menu');
+  if (globalBack) globalBack.style.display = isHost ? 'block' : 'none';
 
   const cpuControls = document.getElementById('cpu-controls');
   if (cpuControls && !isHost) cpuControls.remove();
@@ -857,7 +869,8 @@ function sendRoomOptions() {
   if (!isHost) return;
   const chatFilterEnabled = !!document.getElementById('opt-chat-filter')?.checked;
   const gameplayMusicEnabled = !!document.getElementById('opt-game-music')?.checked;
-  send({ type:'set_room_options', chatFilterEnabled, gameplayMusicEnabled });
+  const bingoMode = document.getElementById('opt-bingo-mode')?.value || roomBingoMode;
+  send({ type:'set_room_options', chatFilterEnabled, gameplayMusicEnabled, bingoMode });
 }
 
 function clearChat() {
@@ -874,7 +887,10 @@ function onState(msg) {
   if (diceSignature && diceSignature !== lastDiceSignature) playSound((msg.dice || []).includes('-') ? 'roll' : 'ding');
   lastDiceSignature = diceSignature;
   const phaseSignature = `${msg.gameType}:${msg.phase}:${msg.pot}:${msg.message}`;
-  if (lastPhaseSignature && phaseSignature !== lastPhaseSignature && ['blackjack_chips','texas_holdem'].includes(msg.gameType)) playSound(msg.phase === 'showdown' || msg.phase === 'settled' ? 'win' : 'card');
+  if (msg.soundEvent && msg.soundEvent.seq !== lastSoundSeq) {
+    lastSoundSeq = msg.soundEvent.seq;
+    playSound(msg.soundEvent.sound || 'click');
+  } else if (lastPhaseSignature && phaseSignature !== lastPhaseSignature && ['blackjack_chips','texas_holdem'].includes(msg.gameType)) playSound(msg.phase === 'showdown' || msg.phase === 'settled' ? 'win' : 'card');
   lastPhaseSignature = phaseSignature;
   gameState = msg;
   if (msg.state === 'over') return;
@@ -882,6 +898,8 @@ function onState(msg) {
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
   const hostChatClearBtn = document.getElementById('chat-clear-host');
   if (hostChatClearBtn) hostChatClearBtn.style.display = isHost ? 'inline-block' : 'none';
+  const globalBack = document.getElementById('global-back-menu');
+  if (globalBack) globalBack.style.display = isHost ? 'block' : 'none';
 
   if ((msg.gameType || 'crazy_eights') !== 'crazy_eights') {
     renderShowcaseState(msg);
@@ -978,19 +996,37 @@ function renderLcrControls(msg) {
   return `<div class="table-actions"><button class="btn-action btn-draw-card" ${yourTurn ? '' : 'disabled'} onclick="send({type:'lcr_roll'}); playSound('roll')">Roll LCR Dice</button>${isHost ? `<button class="btn-action btn-pass-turn" onclick="sendRestart()">Back to Menu</button>` : ''}</div>`;
 }
 
-function renderBingoCard(msg) {
-  if (msg.gameType !== 'bingo' || !msg.bingoCard) return '';
-  const marked = new Set(msg.marked || []);
+function renderSingleBingoCard(card, markedValues, ownerName = '') {
+  if (!card) return '';
+  const marked = new Set(markedValues || []);
   const heads = ['B','I','N','G','O'].map(h => `<div class="bingo-head">${h}</div>`).join('');
   const cells = [];
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
-      const value = msg.bingoCard[r][c];
+      const value = card[r][c];
       const isMarked = value === 'FREE' || marked.has(value);
-      cells.push(`<div class="bingo-live-cell ${isMarked ? 'marked' : ''}" onclick="bingoMark('${value}')">${value}</div>`);
+      const click = ownerName ? '' : ` onclick="bingoMark('${value}')"`;
+      cells.push(`<div class="bingo-live-cell ${isMarked ? 'marked' : ''}"${click}>${value}</div>`);
     }
   }
-  return `<div class="bingo-live-card">${heads}${cells.join('')}</div>${isHost ? `<div class="table-actions"><button class="btn-action btn-draw-card" onclick="send({type:'bingo_draw_next'}); playSound('ding')">Draw Number</button></div>` : ''}`;
+  return `${ownerName ? `<div class="bingo-player-name">${escHtml(ownerName)}</div>` : ''}<div class="bingo-live-card">${heads}${cells.join('')}</div>`;
+}
+
+function renderBingoCard(msg) {
+  if (msg.gameType !== 'bingo') return '';
+  const players = msg.players || [];
+  const allCards = msg.bingoCards || [];
+  const allMarked = msg.allMarked || [];
+  const meMarked = new Set(msg.marked || []);
+  const called = Number(msg.calledNumber);
+  const calledOnYourCard = Number.isFinite(called) && (msg.bingoCard || []).some(row => row.includes(called));
+  const needsMark = calledOnYourCard && !(meMarked.has(called) || meMarked.has(String(called)));
+  const callout = needsMark ? '<div class="mark-callout live">MARK YOUR CARDS!</div>' : '';
+  const cards = allCards.length
+    ? `<div class="bingo-all-cards">${allCards.map((card, idx) => `<div class="bingo-player-card ${idx === msg.yourIdx ? 'you' : ''}">${renderSingleBingoCard(card, allMarked[idx] || [], players[idx]?.name || `Player ${idx + 1}`)}</div>`).join('')}</div>`
+    : renderSingleBingoCard(msg.bingoCard, msg.marked || []);
+  const controls = isHost ? `<div class="table-actions"><button class="btn-action btn-draw-card" ${msg.bingoDrawing ? 'disabled' : ''} onclick="send({type:'bingo_draw_next'}); playSound('ding')">Draw Number (${(msg.bingoMode || 'hard').toUpperCase()})</button></div>` : '';
+  return `${callout}${cards}${controls}`;
 }
 
 function renderShowcaseState(msg) {
@@ -1014,13 +1050,14 @@ function renderShowcaseState(msg) {
   const community = (msg.community || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
   const dealerCards = msg.dealer?.cards ? msg.dealer.cards.map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('') : '';
   const isLcr = msg.gameType === 'left_center_right';
-  const potLabel = isLcr ? `${msg.centerChips || 0} center pot` : `${msg.pot || 0} pot`;
+  const potAmount = isLcr ? (msg.centerChips || 0) : (msg.pot || 0);
+  const potLabel = isLcr ? `${potAmount} center chips` : `${potAmount} pot`;
 
   const seats = players.map(p => {
     const cards = (p.cards || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
     const usesChips = ['blackjack_chips', 'texas_holdem', 'left_center_right'].includes(msg.gameType);
     const chips = usesChips ? (isLcr ? chipHtml(p.chips || 0, 'lcr') : chipHtml(p.chips || 0)) : '';
-    const bet = !isLcr && p.bet ? `<div style="margin-top:6px">Bet: ${chipHtml(p.bet)}</div>` : '';
+    const bet = !isLcr && p.bet ? `<div class="bet-badge" style="margin-top:6px;color:#ffca3a;font-weight:900">Bet: ${p.bet}</div>` : '';
     const result = p.result ? `<div style="color:#ffca3a;font-weight:900">${String(p.result).toUpperCase()}</div>` : '';
     const role = p.role ? `<div style="font-size:.72rem;color:#4cc9f0;font-weight:900">${escHtml(p.role)}</div>` : '';
     const folded = p.folded ? `<div style="color:#ff595e;font-weight:900">FOLDED</div>` : '';
@@ -1032,7 +1069,8 @@ function renderShowcaseState(msg) {
     </div>`;
   }).join('');
 
-  const bingo = msg.gameType === 'bingo' ? `<div class="bingo-call">${msg.calledNumber || 'Ready'}</div><div class="mark-callout">MARK YOUR CARDS!</div>${renderBingoCard(msg)}` : '';
+  const bingoNumber = msg.bingoDrawing ? '-' : (msg.calledNumber || 'Ready');
+  const bingo = msg.gameType === 'bingo' ? `<div class="bingo-call ${msg.bingoDrawing ? 'rolling' : ''}">${bingoNumber}</div>${renderBingoCard(msg)}` : '';
   const dice = msg.dice?.length ? `<div class="dice-row">${msg.dice.map(d => `<div class="die ${d === '-' ? 'blank' : ''}">${d}</div>`).join('')}</div>` : '';
 
   showcase.innerHTML = `<div class="showcase-table">
@@ -1042,17 +1080,14 @@ function renderShowcaseState(msg) {
     ${community ? `<div style="text-align:center;color:#dbe9f7;font-weight:800">Community Cards</div><div class="showcase-community">${community}</div>` : ''}
     ${dice}
     ${bingo}
-    ${['blackjack_chips','texas_holdem','left_center_right'].includes(msg.gameType) ? `<div class="showcase-pot">${isLcr ? chipHtml(msg.centerChips || 0, 'lcr') : chipHtml(msg.pot || 0)}<div>${potLabel}</div></div>` : ''}
+    ${['texas_holdem','left_center_right'].includes(msg.gameType) ? `<div class="showcase-pot"><div class="pot-counter">${potAmount}</div><div>${potLabel}</div></div>` : ''}
     <div class="showcase-players">${seats}</div>
   </div>`;
 
   document.getElementById('hand-cards').innerHTML = renderBetControls(msg, me) + renderBlackjackControls(msg, me) + renderHoldemControls(msg, me) + renderLcrControls(msg) + renderMenuControls(msg);
 }
 
-function renderMenuControls(msg) {
-  if (['blackjack_chips','texas_holdem','left_center_right'].includes(msg.gameType)) return '';
-  return isHost ? `<div class="table-actions"><button class="btn-action btn-pass-turn" onclick="sendRestart()">Back to Menu</button></div>` : '';
-}
+function renderMenuControls(msg) { return ''; }
 
 function tableBet(amount) { send({ type:'table_bet', amount }); }
 function bingoMark(value) {
