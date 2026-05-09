@@ -12,6 +12,17 @@
 html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
 
+/* ── Launch gate ───────────────────────────────────────── */
+#screen-launch{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+#screen-launch::before{content:'';position:absolute;inset:-25%;background:radial-gradient(circle at 50% 42%,rgba(76,201,240,.35),transparent 30%),radial-gradient(circle at 50% 120%,rgba(255,89,94,.22),transparent 42%);animation:launchAura 3s ease-in-out infinite alternate}
+.launch-panel{position:relative;z-index:1;text-align:center;color:#f8fbff;padding:28px}
+.launch-title{font-size:clamp(2.3rem,8vw,5.5rem);font-weight:950;letter-spacing:-3px;text-shadow:0 0 34px rgba(76,201,240,.65);margin-bottom:20px}
+.launch-subtitle{color:#b8c8dc;font-weight:800;margin-bottom:26px}
+.launch-btn{border:none;border-radius:999px;padding:18px 30px;font-size:1.08rem;font-weight:950;letter-spacing:.4px;color:#07111d;background:linear-gradient(135deg,#4cc9f0,#8ac926);cursor:pointer;box-shadow:0 0 0 0 rgba(76,201,240,.7),0 18px 44px rgba(0,0,0,.55);animation:launchPulse 1.25s infinite;transition:transform .15s,filter .15s}
+.launch-btn:hover{transform:translateY(-2px) scale(1.03);filter:brightness(1.08)}
+@keyframes launchPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.72),0 18px 44px rgba(0,0,0,.55)}70%{box-shadow:0 0 0 18px rgba(76,201,240,0),0 18px 44px rgba(0,0,0,.55)}100%{box-shadow:0 0 0 0 rgba(76,201,240,0),0 18px 44px rgba(0,0,0,.55)}}
+@keyframes launchAura{from{transform:scale(1);opacity:.8}to{transform:scale(1.08);opacity:1}}
+
 /* ── Startup / Join / Lobby screens ───────────────────── */
 #screen-join{position:fixed;inset:0;display:flex;align-items:center;
   justify-content:center;overflow:hidden;background:#07090f;animation:startupGlow 3.2s ease-out forwards}
@@ -405,6 +416,15 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </style>
 </head>
 <body>
+
+<!-- ── LAUNCH SCREEN ───────────────────────────────────── -->
+<div id="screen-launch" role="dialog" aria-label="Launch Tabletop Online">
+  <div class="launch-panel">
+    <div class="launch-title">Tabletop Online</div>
+    <div class="launch-subtitle">Gather the table. Deal the cards. Start the night.</div>
+    <button class="launch-btn" type="button" onclick="launchTabletopOnline()">Launch Tabletop Online!</button>
+  </div>
+</div>
 
 <!-- ── JOIN SCREEN ──────────────────────────────────────── -->
 <div id="screen-join">
@@ -1422,19 +1442,12 @@ function unlockAudioAndPlayStartup() {
   return playStartupSound();
 }
 
-function armStartupAudioFallback() {
-  ['pointerdown', 'keydown', 'touchstart'].forEach(eventName => {
-    document.addEventListener(eventName, unlockAudioAndPlayStartup, { once: true, passive: true });
+function launchTabletopOnline() {
+  const launch = document.getElementById('screen-launch');
+  return unlockAudioAndPlayStartup().finally(() => {
+    if (launch) launch.style.display = 'none';
   });
 }
-
-playStartupSound();
-document.addEventListener('DOMContentLoaded', () => {
-  playStartupSound().then(played => {
-    if (!played && !startupSoundPlayed) setStartupAudioPrompt(true);
-  });
-  armStartupAudioFallback();
-});
 
 
 function escHtml(s) {
