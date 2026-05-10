@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "ws": "^8.16.0",
-    "openai": "^6.0.0"
+    "groq-sdk": "^0.33.0"
   },
   "engines": {
     "node": ">=18"

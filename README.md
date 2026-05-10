@@ -71,14 +71,14 @@ If these files are not present, gameplay still works, but those audio tracks wil
 CPU players have named personalities and can speak in chat. There are two layers:
 
 - **Always available:** deterministic bot quips after CPU moves.
-- **Optional OpenAI mode:** if `OPENAI_API_KEY` is set on the server, human chat in a room with CPUs can trigger one CPU to respond using `gpt-4o-mini`.
+- **Optional Groq mode:** if `GROQ_API_KEY` is set on the server, human chat in a room with CPUs has a 30% chance to trigger Grog, and saying "Grog" always tries to trigger him using `llama-3.1-8b-instant`.
 
 For hosted deployments, store API keys only as environment variables, never in the repo:
 
 | Variable | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Enables AI CPU chat responses |
-| `OPENAI_MODEL` | Optional override; defaults to `gpt-4o-mini` |
+| `GROQ_API_KEY` | Enables Groq-powered Grog CPU chat responses |
+| `GROQ_MODEL` | Optional override; defaults to `llama-3.1-8b-instant` |
 
 The server keeps a short sliding room conversation history and throttles AI replies so chat does not spam the API.
 

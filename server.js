@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const PROFANITY_LIST = require('./profanity-list');
+const { rememberRoomMessage, maybeGenerateGrogReply } = require('./aiOrchestrator');
 const PORT = process.env.PORT || 3000;
 
 // ── HTTP server: serve uno.html + assets ─────────────────────
@@ -33,19 +34,16 @@ const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const BOT_PERSONAS = [
-    { name: 'Grog the Barbarian 🤖', personality: 'loud, brave, goofy, and obsessed with big dramatic moves' },
-    { name: 'Melf the Mage 🤖', personality: 'clever, mystical, and fond of over-explaining strategy with sparkle' },
-    { name: 'Pip the Rogue 🤖', personality: 'sneaky, playful, and always pretending every move was planned' },
-    { name: 'Nora the Navigator 🤖', personality: 'calm, upbeat, nautical, and encouraging to everyone at the table' },
-    { name: 'Bingo Bess 🤖', personality: 'cheerful, lucky, and extremely excited whenever numbers appear' },
-    { name: 'Chip McStack 🤖', personality: 'competitive, chip-counting, and full of casino-table banter' },
-    { name: 'Professor Pips 🤖', personality: 'dry, academic, and convinced every dice roll is research' },
-    { name: 'Zara the Bard 🤖', personality: 'dramatic, rhyming, and always narrating the table like a tavern song' },
-    { name: 'Byte Knight 🤖', personality: 'honorable, robotic, and proud of clean logical plays' },
+    { name: 'Grog (CPU) 🤖', personality: 'competitive, sarcastic, modern gamer-bot energy' },
+    { name: 'Nova (CPU) 🤖', personality: 'chill strategist who talks like a sharp esports teammate' },
+    { name: 'Pixel (CPU) 🤖', personality: 'meme-loving, upbeat, and always joking about clutch plays' },
+    { name: 'Ace (CPU) 🤖', personality: 'confident card-table regular with clean modern banter' },
+    { name: 'Blitz (CPU) 🤖', personality: 'fast, bold, and obsessed with speedrun-style decisions' },
+    { name: 'Echo (CPU) 🤖', personality: 'dry humor, deadpan reactions, and calm table reads' },
+    { name: 'Juno (CPU) 🤖', personality: 'friendly, clever, and lightly teasing without being mean' },
+    { name: 'Riff (CPU) 🤖', personality: 'music-loving hype bot with short punchy reactions' },
+    { name: 'Zed (CPU) 🤖', personality: 'laid-back, sarcastic, and confident about every move' },
 ];
-const AI_CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const AI_CHAT_HISTORY_LIMIT = 16;
-const AI_CHAT_COOLDOWN_MS = 3500;
 
 // ── State ────────────────────────────────────────────────────
 let rooms = {}; 
@@ -68,9 +66,6 @@ function makeRoom(code) {
         gameplayMusicEnabled: true,
         bingoMode: 'hard',
         soundSeq: 0,
-        aiChatHistory: [],
-        aiChatPending: false,
-        lastAIChatAt: 0,
         tableData: null,
     };
 }
@@ -202,25 +197,18 @@ function getBotPersona(index) {
     return BOT_PERSONAS[index % BOT_PERSONAS.length];
 }
 
-function rememberRoomChat(room, speaker, text, role = 'user') {
-    if (!room) return;
-    room.aiChatHistory.push({ role, speaker, text: String(text || '').slice(0, 220) });
-    room.aiChatHistory = room.aiChatHistory.slice(-AI_CHAT_HISTORY_LIMIT);
-}
-
 function localBotLine(bot, action = 'move') {
     const lines = {
-        move: ['A calculated flourish!', 'My gears say that was brilliant.', 'Your move, table friends!'],
-        play: ['Aha! A card with style!', 'I cast this card upon the table!', 'That should stir the pot.'],
-        draw: ['A tactical draw. Definitely tactical.', 'More cards, more destiny.', 'I meant to do that.'],
-        pass: ['I pass... with dignity.', 'A pause for dramatic effect.', 'I shall wait for a better moment.'],
-        bet: ['I place my chips with confidence!', 'The chips have spoken.', 'Fortune favors bold circuits!'],
-        roll: ['Rattle and roll!', 'Let the dice decide my legend!', 'Tiny cubes, mighty fate!'],
-        bingo: ['Eyes sharp, cards ready!', 'Numbers are dancing now!', 'Mark fast, friends!'],
+        move: ['Clean move. Try to keep up.', 'I saw the angle, obviously.', 'That is what we call pressure.'],
+        play: ['Dropped that card like a pro.', 'Your timeline just got worse.', 'Easy value. Next.'],
+        draw: ['Fine, I am farming options.', 'Card economy. Look it up.', 'Totally planned draw. Zero panic.'],
+        pass: ['I pass. Strategic silence.', 'Skipping the drama this turn.', 'Not worth my genius yet.'],
+        bet: ['I am putting chips where my confidence is.', 'That bet has main-character energy.', 'Pressure applied. Your move.'],
+        roll: ['Dice are live. Let chaos cook.', 'Rolling with premium confidence.', 'If this works, I meant it.'],
+        bingo: ['Marked it. Efficiency mode.', 'Number spotted. Easy.', 'My card is basically glowing.'],
     };
     const options = lines[action] || lines.move;
-    const prefix = bot?.personality?.includes('rhyming') ? 'Hear my table tale: ' : '';
-    return prefix + options[Math.floor(Math.random() * options.length)];
+    return options[Math.floor(Math.random() * options.length)];
 }
 
 function botChat(room, bot, text, remember = true) {
@@ -228,7 +216,7 @@ function botChat(room, bot, text, remember = true) {
     const line = String(text).replace(/\s+/g, ' ').trim().slice(0, 180);
     if (!line) return;
     sendChat(room, bot.name, line);
-    if (remember) rememberRoomChat(room, bot.name, line, 'assistant');
+    if (remember) rememberRoomMessage(room.code, bot.name, line);
 }
 
 function botMoveChat(room, botOrIdx, action) {
@@ -237,43 +225,14 @@ function botMoveChat(room, botOrIdx, action) {
     setTimeout(() => botChat(room, bot, localBotLine(bot, action), true), 250);
 }
 
-function getOpenAIClient() {
-    if (!process.env.OPENAI_API_KEY) return null;
-    const OpenAI = require('openai');
-    return new OpenAI();
-}
-
-async function maybeRunAIChat(room, humanName, humanText) {
-    if (!room || room.aiChatPending || !room.players.some(p => p.isBot)) return;
-    if (!process.env.OPENAI_API_KEY) return;
-    const now = Date.now();
-    if (now - (room.lastAIChatAt || 0) < AI_CHAT_COOLDOWN_MS) return;
-    room.aiChatPending = true;
-    room.lastAIChatAt = now;
-    const bots = room.players.filter(p => p.isBot).map(p => ({ name: p.name, personality: p.personality || 'friendly table-game CPU' }));
-    const transcript = room.aiChatHistory.slice(-AI_CHAT_HISTORY_LIMIT).map(m => `${m.speaker}: ${m.text}`).join('\n');
-    const instructions = `You orchestrate playful CPU chat in a family-friendly Tabletop Online room. Pick exactly one CPU from this list to respond: ${bots.map(b => `${b.name} (${b.personality})`).join('; ')}. Keep the response under 22 words, react to the latest human message, do not mention being an AI model, and return JSON only like {"speaker":"CPU name","message":"short chat"}.`;
-    try {
-        const client = getOpenAIClient();
-        if (!client) return;
-        const response = await client.responses.create({
-            model: AI_CHAT_MODEL,
-            instructions,
-            input: `Game: ${prettyGameName(room.gameType)}\nRecent chat:\n${transcript}\nLatest human message from ${humanName}: ${humanText}`,
-            max_output_tokens: 90,
-        });
-        const raw = (response.output_text || '').trim();
-        let parsed = null;
-        try { parsed = JSON.parse(raw); } catch {}
-        const chosen = bots.find(b => b.name === parsed?.speaker) || bots[Math.floor(Math.random() * bots.length)];
-        const bot = room.players.find(p => p.name === chosen.name && p.isBot);
-        const message = parsed?.message || localBotLine(bot, 'move');
-        botChat(room, bot, message, true);
-    } catch (err) {
-        console.warn('AI CPU chat skipped:', err.message);
-    } finally {
-        room.aiChatPending = false;
-    }
+async function maybeRunGrogChat(room, humanName, humanText) {
+    const reply = await maybeGenerateGrogReply({
+        roomCode: room.code,
+        humanName,
+        message: humanText,
+        gameName: prettyGameName(room.gameType),
+    });
+    if (reply) sendChat(room, 'Grog (CPU)', reply);
 }
 
 function nextTurn(room, steps=1) {
@@ -1055,8 +1014,7 @@ wss.on('connection', (ws) => {
             const speaker = myRoom.players[myIdx];
             sendChat(myRoom, speaker.name, text);
             if (!speaker.isBot) {
-                rememberRoomChat(myRoom, speaker.name, text, 'user');
-                maybeRunAIChat(myRoom, speaker.name, text);
+                maybeRunGrogChat(myRoom, speaker.name, text);
             }
             return;
         }
