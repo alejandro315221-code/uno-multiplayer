@@ -12,10 +12,14 @@ Tabletop Online is a browser-based multiplayer table room for friends. Create a 
   - Texas Hold'em
   - Bingo with Easy and Hard draw modes
   - Left Center Right
+  - Roulette with American/European layouts, server-side outcomes, and play-money chip betting
+  - Bank Dice, a family-friendly craps-rules dice table
+  - Punto Banco Baccarat with automated third-card rules
   - Chat Room mode
 - **CPU players** for filling empty seats.
 - **Room chat** with optional profanity filtering and host chat clearing.
 - **Music/SFX controls** and a launch screen that captures a user click so browsers can allow startup audio.
+- **No real-money transaction logic:** casino-style games use only local virtual chip balances and never connect to payment, card-processing, cryptocurrency, or cash-out systems.
 - **No database required** for basic play; rooms live in server memory.
 
 ## Quick Start
