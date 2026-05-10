@@ -71,13 +71,27 @@ If these files are not present, gameplay still works, but those audio tracks wil
 CPU players have named personalities and can speak in chat. There are two layers:
 
 - **Always available:** deterministic bot quips after CPU moves.
-- **Optional Groq mode:** if `GROQ_API_KEY` is set on the server, human chat in a room with CPUs has a 30% chance to trigger Grog, and saying "Grog" always tries to trigger him using `llama-3.1-8b-instant`.
+- **Optional Groq mode:** if `GROQ_API_KEY` is set on the server, human chat in a room with CPUs has a 30% chance to trigger one of the active CPUs. Mentioning a CPU by name, such as "Grog" or "Nova," makes that specific CPU more likely to respond using `llama-3.1-8b-instant`.
+
+Current CPU personalities are:
+
+| CPU | Personality |
+|---|---|
+| Grog | Aggressive, sarcastic fantasy barbarian roast master |
+| Juno | Over-enthusiastic ALL-CAPS hype-man |
+| Blitz | Impatient speed-runner who wants every turn faster |
+| Nova | Ultra-polite calculation android with win-probability analysis |
+| Pixel | Retro arcade nerd with 8-bit slang and cheat-code references |
+| Zed | Anxious paranoid doom-scroller convinced the game is rigged |
+| Ace | Smooth, flirtatious card shark and casino high-roller |
+| Riff | Chill rocker dude comparing moves to music and guitar solos |
+| Echo | Sarcastic copycat mirror using fragments and SpOnGeBoB-style mockery |
 
 For hosted deployments, store API keys only as environment variables, never in the repo:
 
 | Variable | Purpose |
 |---|---|
-| `GROQ_API_KEY` | Enables Groq-powered Grog CPU chat responses |
+| `GROQ_API_KEY` | Enables Groq-powered CPU chat responses |
 | `GROQ_MODEL` | Optional override; defaults to `llama-3.1-8b-instant` |
 
 The server keeps a short sliding room conversation history and throttles AI replies so chat does not spam the API.
