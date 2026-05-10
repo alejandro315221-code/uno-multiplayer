@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const PROFANITY_LIST = require('./profanity-list');
-const { rememberRoomMessage, maybeGenerateGrogReply } = require('./aiOrchestrator');
+const { rememberRoomMessage, maybeGenerateCpuReply } = require('./aiOrchestrator');
 const PORT = process.env.PORT || 3000;
 
 // ── HTTP server: serve uno.html + assets ─────────────────────
@@ -197,6 +197,10 @@ function getBotPersona(index) {
     return BOT_PERSONAS[index % BOT_PERSONAS.length];
 }
 
+function randomBotPersonas(count) {
+    return shuffle([...BOT_PERSONAS]).slice(0, Math.min(count, BOT_PERSONAS.length));
+}
+
 function localBotLine(bot, action = 'move') {
     const lines = {
         move: ['Clean move. Try to keep up.', 'I saw the angle, obviously.', 'That is what we call pressure.'],
@@ -225,14 +229,18 @@ function botMoveChat(room, botOrIdx, action) {
     setTimeout(() => botChat(room, bot, localBotLine(bot, action), true), 250);
 }
 
-async function maybeRunGrogChat(room, humanName, humanText) {
-    const reply = await maybeGenerateGrogReply({
+async function maybeRunCpuChat(room, humanName, humanText) {
+    const cpus = room.players
+        .filter(p => p.isBot)
+        .map(p => ({ name: p.name.replace(/ 🤖$/, ''), personality: p.personality }));
+    const reply = await maybeGenerateCpuReply({
         roomCode: room.code,
         humanName,
         message: humanText,
         gameName: prettyGameName(room.gameType),
+        cpus,
     });
-    if (reply) sendChat(room, 'Grog (CPU)', reply);
+    if (reply) sendChat(room, reply.speaker, reply.message);
 }
 
 function nextTurn(room, steps=1) {
@@ -901,8 +909,8 @@ wss.on('connection', (ws) => {
         if (msg.type === 'set_cpus') {
             if (!myRoom || myIdx !== 0) return;
             myRoom.players = myRoom.players.filter(p => !p.isBot);
-            for (let i = 0; i < msg.count; i++) {
-                const persona = getBotPersona(i);
+            const personas = randomBotPersonas(Number(msg.count || 0));
+            personas.forEach(persona => {
                 myRoom.players.push({
                     name: persona.name,
                     personality: persona.personality,
@@ -910,7 +918,7 @@ wss.on('connection', (ws) => {
                     connected: true,
                     hand: []
                 });
-            }
+            });
             broadcast(myRoom, lobbyPayload(myRoom));
             return;
         }
@@ -1014,7 +1022,7 @@ wss.on('connection', (ws) => {
             const speaker = myRoom.players[myIdx];
             sendChat(myRoom, speaker.name, text);
             if (!speaker.isBot) {
-                maybeRunGrogChat(myRoom, speaker.name, text);
+                maybeRunCpuChat(myRoom, speaker.name, text);
             }
             return;
         }
