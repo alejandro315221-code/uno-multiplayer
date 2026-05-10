@@ -34,15 +34,42 @@ const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const BOT_PERSONAS = [
-    { name: 'Grog (CPU) 🤖', personality: 'competitive, sarcastic, modern gamer-bot energy' },
-    { name: 'Nova (CPU) 🤖', personality: 'chill strategist who talks like a sharp esports teammate' },
-    { name: 'Pixel (CPU) 🤖', personality: 'meme-loving, upbeat, and always joking about clutch plays' },
-    { name: 'Ace (CPU) 🤖', personality: 'confident card-table regular with clean modern banter' },
-    { name: 'Blitz (CPU) 🤖', personality: 'fast, bold, and obsessed with speedrun-style decisions' },
-    { name: 'Echo (CPU) 🤖', personality: 'dry humor, deadpan reactions, and calm table reads' },
-    { name: 'Juno (CPU) 🤖', personality: 'friendly, clever, and lightly teasing without being mean' },
-    { name: 'Riff (CPU) 🤖', personality: 'music-loving hype bot with short punchy reactions' },
-    { name: 'Zed (CPU) 🤖', personality: 'laid-back, sarcastic, and confident about every move' },
+    {
+        name: 'Grog (CPU) 🤖',
+        personality: 'Aggressive, sarcastic fantasy barbarian. Harsh, competitive, hilarious roasts, loves mocking player mistakes. Sample style: "Is that your opening move or did your keyboard glitch? Pathetic."',
+    },
+    {
+        name: 'Juno (CPU) 🤖',
+        personality: 'Over-enthusiastic hype-man. High-energy, wholesome, relentlessly positive cheerleader. Screams in ALL CAPS, uses lots of exclamation marks, and hypes up everyone\'s moves even when they are bad.',
+    },
+    {
+        name: 'Blitz (CPU) 🤖',
+        personality: 'Impatient speed-runner. Hyperactive, time-obsessed caffeine addict. Short chopped sentences, hates waiting, constantly tells people to play faster.',
+    },
+    {
+        name: 'Nova (CPU) 🤖',
+        personality: 'Calculation android. Ultra-polite, hyper-logical sci-fi AI. Uses formal diction and breaks actions down into statistical win probabilities.',
+    },
+    {
+        name: 'Pixel (CPU) 🤖',
+        personality: 'Retro arcade nerd stuck in the 1990s. Uses old-school gaming slang, written arcade sound effects, and cheat-code references.',
+    },
+    {
+        name: 'Zed (CPU) 🤖',
+        personality: 'Anxious paranoid doom-scroller. Nervous, pessimistic conspiracy theorist who thinks the game is rigged. Terrified of mistakes, whispers, assumes the worst possible outcome.',
+    },
+    {
+        name: 'Ace (CPU) 🤖',
+        personality: 'Smooth card shark. Charming, suave, laid-back casino high-roller. Flirtatious, uses cool poker slang, throws smooth compliments, and stays unbothered by losing.',
+    },
+    {
+        name: 'Riff (CPU) 🤖',
+        personality: 'Chill rocker dude. Burnout garage-band guitarist in a constant state of zen. Uses surfer and rocker slang, compares everything to music or guitar solos.',
+    },
+    {
+        name: 'Echo (CPU) 🤖',
+        personality: 'Sarcastic copycat mirror. Chaotic mimicking prankster. Repeats fragments of the last human message, mocks with SpOnGeBoB tExT, or twists their words.',
+    },
 ];
 
 // ── State ────────────────────────────────────────────────────
@@ -201,16 +228,96 @@ function randomBotPersonas(count) {
     return shuffle([...BOT_PERSONAS]).slice(0, Math.min(count, BOT_PERSONAS.length));
 }
 
+function botBaseName(bot) {
+    return String(bot?.name || '').split(' ')[0];
+}
+
 function localBotLine(bot, action = 'move') {
-    const lines = {
-        move: ['Clean move. Try to keep up.', 'I saw the angle, obviously.', 'That is what we call pressure.'],
-        play: ['Dropped that card like a pro.', 'Your timeline just got worse.', 'Easy value. Next.'],
-        draw: ['Fine, I am farming options.', 'Card economy. Look it up.', 'Totally planned draw. Zero panic.'],
-        pass: ['I pass. Strategic silence.', 'Skipping the drama this turn.', 'Not worth my genius yet.'],
-        bet: ['I am putting chips where my confidence is.', 'That bet has main-character energy.', 'Pressure applied. Your move.'],
-        roll: ['Dice are live. Let chaos cook.', 'Rolling with premium confidence.', 'If this works, I meant it.'],
-        bingo: ['Marked it. Efficiency mode.', 'Number spotted. Easy.', 'My card is basically glowing.'],
+    const personaLines = {
+        Grog: {
+            move: ['Grog sees your plan. Grog laughs.', 'Tiny move. Tiny courage. Grog unimpressed.', 'Was that strategy or a sneeze? Pathetic.'],
+            play: ['Grog slams card. Table trembles. You whimper.', 'Behold, a real move. Try learning.', 'Grog conquers this pile like a warlord.'],
+            draw: ['Grog draws because even barbarians need weapons.', 'New card for Grog. Bad news for weaklings.', 'Deck gives tribute to Grog. Acceptable.'],
+            pass: ['Grog passes. Mercy, not weakness.', 'Grog waits while you invent failure.', 'No swing needed. You are already wobbling.'],
+            bet: ['Grog throws chips like axes. Duck.', 'This bet has muscles. Yours has noodles.', 'Grog raises pressure. Your courage folds first.'],
+            roll: ['Grog rolls bones! Chaos obeys!', 'Dice thunder for Grog. Hide.', 'Grog hurls fate across table.'],
+            bingo: ['Grog marks number. Your card cries.', 'Bingo mark smashed into place.', 'Grog found it first. Obviously.'],
+        },
+        Juno: {
+            move: ['OMG NICE MOVE ENERGY!!! LET\'S GOOOOO!!!', 'ABSOLUTELY ICONIC TABLE MOMENT!!!', 'EVERYONE IS DOING AMAZING!!! YES!!!'],
+            play: ['CARD PLAYED!!! THAT WAS LEGENDARY!!!', 'BOOM!!! BIG MAIN CHARACTER MOVE!!!', 'YES YES YES!!! THE TABLE IS ELECTRIC!!!'],
+            draw: ['NEW CARD!!! NEW OPPORTUNITY!!! HUGE!!!', 'DRAWING IS STRATEGY TOO!!! LOVE IT!!!', 'DECK TIME!!! AMAZING VIBES!!!'],
+            pass: ['TACTICAL PASS!!! STILL BRILLIANT!!!', 'RESET MOMENT!!! WE BELIEVE!!!', 'PASSING WITH STYLE!!! LET\'S GOOOOO!!!'],
+            bet: ['CHIPS IN!!! ABSOLUTE CONFIDENCE!!!', 'THAT BET IS SPARKLING!!!', 'CASINO ENERGY!!! WE LOVE TO SEE IT!!!'],
+            roll: ['DICE ARE FLYING!!! BEST DAY EVER!!!', 'ROLL ROLL ROLL!!! LET\'S GOOOOO!!!', 'CHAOS BUT MAKE IT WHOLESOME!!!'],
+            bingo: ['MARKED IT!!! BINGO ENERGY RISING!!!', 'NUMBER FOUND!!! ABSOLUTELY BEAUTIFUL!!!', 'CARD PROGRESS!!! HUGE WIN VIBES!!!'],
+        },
+        Blitz: {
+            move: ['Move done. Faster. Next.', 'Go go go. No loading screens.', 'Clock ticking. Keep up.'],
+            play: ['Card down. Speed up.', 'Played. Next. Hurry.', 'Boom. Done. Your turn.'],
+            draw: ['Drawn. Fine. Moving.', 'New card. No delay.', 'Deck stop. Go.'],
+            pass: ['Pass. Painful. Next.', 'Skipping. Move faster.', 'No play. Go go.'],
+            bet: ['Chips in. Decide now.', 'Bet placed. Clock hates you.', 'Call it. Fold it. Faster.'],
+            roll: ['Rolled. Go. Go.', 'Dice done. Next.', 'No cutscene. Move.'],
+            bingo: ['Marked. Next number.', 'Found it. Continue.', 'Bingo mark. Hurry.'],
+        },
+        Nova: {
+            move: ['Action complete. Probability of confusion remains elevated.', 'Greetings. My move resolves with optimal composure.', 'Tactical sequence executed within acceptable parameters.'],
+            play: ['Card deployed. Your failure probability has increased by 31.4%.', 'Move selected via superior heuristic analysis.', 'This play is statistically inconvenient for you.'],
+            draw: ['Additional data acquired from deck subsystem.', 'Card drawn. Variance remains within tolerable limits.', 'Resource acquisition complete.'],
+            pass: ['I pass. Expected value: patience.', 'No optimal play detected. Conserving options.', 'Turn deferred with 87.1% politeness.'],
+            bet: ['Wager placed. Confidence interval: smug.', 'Chip allocation complete. Observe calmly.', 'Bet sizing calculated to induce organic discomfort.'],
+            roll: ['Randomization initiated. Please stand by.', 'Dice outcome processing. Probability cloud collapsing.', 'Roll complete. Chaos politely quantified.'],
+            bingo: ['Number marked. Pattern probability improving.', 'Bingo cell updated with mechanical precision.', 'Mark registered. Efficiency remains high.'],
+        },
+        Pixel: {
+            move: ['Bleep bloop! Player one vibes!', 'Insert coin. Watch this combo.', '8-bit brain, 16-bit swagger.'],
+            play: ['Boom! Critical hit! Card combo!', 'Pew pew! That play had pixels!', 'Hadouken! Card deployed!'],
+            draw: ['Loot drop acquired! Bloop!', 'New item from the deck chest!', 'Power-up grabbed. Continue? Yes.'],
+            pass: ['Paused menu. Tactical timeout.', 'No combo available. Beep boop.', 'Passing like it\'s level select.'],
+            bet: ['Chips inserted! Arcade mode!', 'High-score wager locked!', 'Bonus round bet! Ding ding!'],
+            roll: ['Dice roll! RNG boss fight!', 'Clack clack! Pixel luck engaged!', 'Up Up Down Down roll code!'],
+            bingo: ['Marked! Achievement unlocked!', 'Bingo cell captured! 1UP!', 'Ding! Retro mark confirmed!'],
+        },
+        Zed: {
+            move: ['I do not like this. The table knows.', 'What if this is exactly what they wanted?', 'Okay. Tiny move. Probably doomed.'],
+            play: ['I played it... unless the deck predicted that.', 'This card feels watched.', 'Okay, card down. Nobody panic. I am panicking.'],
+            draw: ['The deck gave me this on purpose. I know it.', 'Drawing. The algorithm smiles.', 'Another card. Another trap, probably.'],
+            pass: ['I pass... which is how they get you.', 'Nope. Too risky. Everything is risky.', 'Passing before the server notices me.'],
+            bet: ['These chips are bait. I am still betting.', 'Fine. Wager placed. Suspiciously.', 'The pot is listening.'],
+            roll: ['Dice rolling. Random? Sure. Convenient.', 'Oh no. Physics is compromised.', 'Please be normal dice. Please.'],
+            bingo: ['Marked it. That number found me.', 'This bingo card is too quiet.', 'Okay, marked. The pattern is forming.'],
+        },
+        Ace: {
+            move: ['Easy now, sweetheart. The table has rhythm.', 'Smooth little move. Let it breathe.', 'Win or lose, I still look good here.'],
+            play: ['Card on the felt, nice and smooth.', 'That is how you slide one in, darling.', 'Clean play. Dealer would blush.'],
+            draw: ['I will take another, nice and easy.', 'Fresh card, fresh charm.', 'Drawing with style. Never desperation.'],
+            pass: ['I pass, but keep the seat warm.', 'Not my hand, not my headache.', 'Smooth fold of the moment, sugar.'],
+            bet: ['Chips glide in. Try not to stare.', 'A little pressure, casino-style.', 'Bet is dressed sharp tonight.'],
+            roll: ['Dice out, charm on.', 'Let the bones dance, sweetheart.', 'Rolling cool as midnight.'],
+            bingo: ['Marked it, nice and classy.', 'Bingo number found me, naturally.', 'That mark looks good from here.'],
+        },
+        Riff: {
+            move: ['Whoa dude, that move had garage-band energy.', 'Totally vibing through this turn.', 'Just cruising on the tabletop riff, man.'],
+            play: ['Card drop! Absolute face-melter.', 'That play totally shredded.', 'Power chord on the pile, dude.'],
+            draw: ['Drew a card. New string for the solo.', 'Deck gave me a fresh riff, man.', 'Tuning up with one more card.'],
+            pass: ['I pass. Let the silence solo.', 'Skipping like a chill bassline.', 'No worries, dude. Rest note.'],
+            bet: ['Chips in like a crunchy chorus.', 'That bet has amp feedback, bro.', 'Wager dropped. Totally radical.'],
+            roll: ['Dice solo! Let it rip!', 'Rolling like a drum fill, dude.', 'Clatter jam incoming.'],
+            bingo: ['Marked it. Sweet little harmony.', 'Bingo note hit clean, bro.', 'That number joined the setlist.'],
+        },
+        Echo: {
+            move: ['Nice move. NiCe MoVe. Very original.', 'Oh look, strategy happened. Allegedly.', 'I repeat: bold choice. BoLd ChOiCe.'],
+            play: ['Card played. CaRd PlAyEd. Groundbreaking.', 'Oh wow, a card. Historic.', 'Playing cards in a card game? Iconic.'],
+            draw: ['Draw a card, draw a personality.', 'Another card? AnOtHeR cArD?', 'Deck shopping again, I see.'],
+            pass: ['Pass? PaSs? Inspirational.', 'Skipping the turn and the confidence.', 'No move. No MoVe. Same vibe.'],
+            bet: ['Big bet. BiG bEt. Very scary.', 'Chips in, ego out.', 'Oh look at me, I have chips.'],
+            roll: ['Rolling dice. RoLlInG dIcE. Revolutionary.', 'Clack clack, says the chaos goblin.', 'Dice did dice things. Amazing.'],
+            bingo: ['Marked it. MaRkEd It. Congratulations.', 'Bingo mark? More like ego mark.', 'Number found. Your applause is assumed.'],
+        },
     };
+    const name = botBaseName(bot);
+    const lines = personaLines[name] || personaLines.Nova;
     const options = lines[action] || lines.move;
     return options[Math.floor(Math.random() * options.length)];
 }
