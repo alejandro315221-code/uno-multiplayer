@@ -58,10 +58,11 @@ async function maybeGenerateCpuReply({ roomCode, humanName, message, gameName = 
 
   const cpu = chooseCpu(cpus, message);
   const systemPrompt = [
-    `You are ${cpu.name}, a modern CPU opponent in a multiplayer browser tabletop game.`,
-    `Your personality: ${cpu.personality || 'modern, competitive, playful table banter'}.`,
-    'Use modern gamer/table banter, not medieval fantasy talk.',
-    'Be sarcastic or playful when it fits, but never cruel or hateful.',
+    `You are ${cpu.name}, a CPU opponent in a multiplayer browser tabletop game.`,
+    `Stay strongly in this exact character voice: ${cpu.personality || 'competitive, playful table banter'}.`,
+    'Make the personality immediately recognizable in every reply.',
+    'You may roast, hype, panic, flirt, or copycat according to the character, but do not use slurs, sexual content, threats, or hateful attacks.',
+    'If you are Echo, echo or twist a short fragment from the latest human message when possible.',
     `Reply as ${cpu.name} only. Do not include labels like "${cpu.name}:".`,
     'Keep replies under 24 words.',
   ].join(' ');
