@@ -35,25 +35,34 @@ function rememberRoomMessage(roomCode, speaker, text) {
   while (memory.length > ROOM_MEMORY_LIMIT) memory.shift();
 }
 
-function shouldAskGrog(text) {
-  return /\bgrog\b/i.test(String(text || '')) || Math.random() < 0.30;
+function shouldAskCpu(text, cpuNames = []) {
+  const body = String(text || '');
+  return cpuNames.some(name => body.toLowerCase().includes(String(name).split(' ')[0].toLowerCase())) || Math.random() < 0.30;
 }
 
-async function maybeGenerateGrogReply({ roomCode, humanName, message, gameName = 'Tabletop Online' }) {
+function chooseCpu(cpus, message) {
+  const body = String(message || '').toLowerCase();
+  const mentioned = cpus.find(cpu => body.includes(String(cpu.name).split(' ')[0].toLowerCase()));
+  return mentioned || cpus[Math.floor(Math.random() * cpus.length)];
+}
+
+async function maybeGenerateCpuReply({ roomCode, humanName, message, gameName = 'Tabletop Online', cpus = [] }) {
   rememberRoomMessage(roomCode, humanName, message);
 
-  if (!shouldAskGrog(message)) return null;
+  if (!cpus.length || !shouldAskCpu(message, cpus.map(cpu => cpu.name))) return null;
   const groq = getGroqClient();
   if (!groq) return null;
 
   const memory = getRoomMemory(roomCode);
   const memoryLines = memory.map(entry => `${entry.speaker}: ${entry.text}`).join('\n') || 'No chat yet.';
 
+  const cpu = chooseCpu(cpus, message);
   const systemPrompt = [
-    'You are Grog (CPU), a modern competitive tabletop gaming bot in a multiplayer browser game.',
-    'You are sarcastic, quick, playful, and confident, but never cruel or hateful.',
+    `You are ${cpu.name}, a modern CPU opponent in a multiplayer browser tabletop game.`,
+    `Your personality: ${cpu.personality || 'modern, competitive, playful table banter'}.`,
     'Use modern gamer/table banter, not medieval fantasy talk.',
-    'Reply as Grog only. Do not include labels like "Grog:".',
+    'Be sarcastic or playful when it fits, but never cruel or hateful.',
+    `Reply as ${cpu.name} only. Do not include labels like "${cpu.name}:".`,
     'Keep replies under 24 words.',
   ].join(' ');
 
@@ -70,8 +79,8 @@ async function maybeGenerateGrogReply({ roomCode, humanName, message, gameName =
 
     const reply = completion.choices?.[0]?.message?.content?.replace(/\s+/g, ' ').trim().slice(0, 180);
     if (!reply) return null;
-    rememberRoomMessage(roomCode, 'Grog (CPU)', reply);
-    return reply;
+    rememberRoomMessage(roomCode, cpu.name, reply);
+    return { speaker: cpu.name, message: reply };
   } catch (err) {
     console.warn('Groq CPU chat skipped:', err.message);
     return null;
@@ -80,5 +89,5 @@ async function maybeGenerateGrogReply({ roomCode, humanName, message, gameName =
 
 module.exports = {
   rememberRoomMessage,
-  maybeGenerateGrogReply,
+  maybeGenerateCpuReply,
 };
