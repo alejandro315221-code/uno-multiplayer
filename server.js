@@ -339,7 +339,7 @@ function botMoveChat(room, botOrIdx, action) {
 async function maybeRunCpuChat(room, humanName, humanText) {
     const cpus = room.players
         .filter(p => p.isBot)
-        .map(p => ({ name: p.name.replace(/ 🤖$/, '🤖'), personality: p.personality }));
+        .map(p => ({ name: p.name.replace(/ 🤖$/, ' 🤖'), personality: p.personality }));
     const reply = await maybeGenerateCpuReply({
         roomCode: room.code,
         humanName,
