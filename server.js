@@ -30,7 +30,7 @@ const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 const CHIP_DENOMINATIONS = [1, 5, 10, 20, 50, 100, 500];
-const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips', 'texas_holdem', 'left_center_right'];
+const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips', 'texas_holdem', 'left_center_right', 'roulette', 'bank_dice', 'baccarat'];
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const BOT_PERSONAS = [
@@ -193,6 +193,9 @@ function prettyGameName(gameType) {
         blackjack_chips: 'Blackjack + Chips',
         texas_holdem: "Texas Hold'em",
         left_center_right: 'Left Center Right',
+        roulette: 'Roulette',
+        bank_dice: 'Bank Dice',
+        baccarat: 'Baccarat',
         chat_room: 'Chat Room',
     })[gameType] || String(gameType || 'Unknown game').replaceAll('_', ' ');
 }
@@ -526,6 +529,32 @@ function sendTableState(room) {
             soundEvent: data.soundEvent || null,
             chipDenominations: CHIP_DENOMINATIONS,
             gameplayMusicEnabled: room.gameplayMusicEnabled,
+            roulette: room.gameType === 'roulette' ? {
+                isAmerican: !!data.isAmerican,
+                wheel: rouletteWheel(data.isAmerican),
+                winningNumber: data.winningNumber || null,
+                winningIndex: data.winningIndex ?? null,
+                spinSeq: data.spinSeq || 0,
+                history: data.history || [],
+                bets: players[idx]?.bets || [],
+            } : undefined,
+            bankDice: room.gameType === 'bank_dice' ? {
+                point: data.point || null,
+                rollSeq: data.rollSeq || 0,
+                bets: players[idx]?.bets || {},
+                finalDice: data.finalDice || [],
+                history: data.history || [],
+            } : undefined,
+            baccarat: room.gameType === 'baccarat' ? {
+                playerHand: data.playerHand || [],
+                bankerHand: data.bankerHand || [],
+                playerTotal: baccaratTotal(data.playerHand || []),
+                bankerTotal: baccaratTotal(data.bankerHand || []),
+                winner: data.winner || null,
+                dealSeq: data.dealSeq || 0,
+                bets: players[idx]?.bets || {},
+                history: data.history || [],
+            } : undefined,
         }));
     });
 }
@@ -862,6 +891,326 @@ function handleBingoMark(room, playerIdx, number) {
     sendTableState(room);
 }
 
+
+const AMERICAN_ROULETTE_WHEEL = ["0", "28", "9", "26", "30", "11", "7", "20", "32", "17", "5", "22", "34", "15", "3", "24", "36", "13", "1", "00", "27", "10", "25", "29", "12", "8", "19", "31", "18", "6", "21", "33", "16", "4", "23", "35", "14", "2"];
+const EUROPEAN_ROULETTE_WHEEL = ["0", "32", "15", "19", "4", "21", "2", "25", "17", "34", "6", "27", "13", "36", "11", "30", "8", "23", "10", "5", "24", "16", "33", "1", "20", "14", "31", "9", "22", "18", "29", "7", "28", "12", "35", "3", "26"];
+const ROULETTE_REDS = new Set(['1','3','5','7','9','12','14','16','18','19','21','23','25','27','30','32','34','36']);
+
+function rouletteWheel(isAmerican = true) {
+    return isAmerican ? AMERICAN_ROULETTE_WHEEL : EUROPEAN_ROULETTE_WHEEL;
+}
+
+function rouletteColor(value) {
+    const text = String(value);
+    if (text === '0' || text === '00') return 'green';
+    return ROULETTE_REDS.has(text) ? 'red' : 'black';
+}
+
+function normalizeBetAmount(player, amount) {
+    const clean = Math.max(0, Math.floor(Number(amount || 0)));
+    if (!clean || !player || clean > player.chips) return 0;
+    return clean;
+}
+
+function addCasinoBet(room, playerIdx, bet) {
+    const data = room.tableData;
+    const player = data?.players?.[playerIdx];
+    if (!data || !player || !room.players[playerIdx]?.connected) return false;
+    const amount = normalizeBetAmount(player, bet.amount);
+    if (!amount) { data.message = 'Bet rejected: not enough virtual chips.'; sendTableState(room); return false; }
+
+    if (room.gameType === 'roulette') return addRouletteBet(room, player, bet, amount);
+    if (room.gameType === 'bank_dice') return addBankDiceBet(room, player, bet, amount);
+    if (room.gameType === 'baccarat') return addBaccaratBet(room, player, bet, amount);
+    return false;
+}
+
+function addRouletteBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase === 'spinning') return false;
+    const type = String(bet.betType || 'straight');
+    const selection = Array.isArray(bet.selection) ? bet.selection.map(String) : [String(bet.selection ?? '')];
+    const allowed = ['straight','split','street','corner','column','dozen','red','black','even','odd','basket'];
+    if (!allowed.includes(type)) return false;
+    if (!data.isAmerican && (type === 'basket' || selection.includes('00'))) { data.message = 'European Roulette disables 00 and the basket bet.'; sendTableState(room); return false; }
+    if (type === 'basket') selection.splice(0, selection.length, '0', '00', '1', '2', '3');
+    player.chips -= amount;
+    player.bets.push({ type, selection, amount });
+    player.bet = (player.bet || 0) + amount;
+    data.pot += amount;
+    data.phase = 'betting';
+    data.message = `${player.name} placed ${amount} on ${type}.`;
+    sendTableState(room);
+    return true;
+}
+
+function rouletteBetWins(bet, outcome, isAmerican) {
+    const n = Number(outcome);
+    const sel = (bet.selection || []).map(String);
+    if (bet.type === 'straight') return sel.includes(String(outcome));
+    if (bet.type === 'split' || bet.type === 'street' || bet.type === 'corner' || bet.type === 'basket') return sel.includes(String(outcome));
+    if (outcome === '0' || outcome === '00') return false;
+    if (bet.type === 'red' || bet.type === 'black') return rouletteColor(outcome) === bet.type;
+    if (bet.type === 'even') return n % 2 === 0;
+    if (bet.type === 'odd') return n % 2 === 1;
+    if (bet.type === 'dozen') return (sel[0] === '1' && n >= 1 && n <= 12) || (sel[0] === '2' && n >= 13 && n <= 24) || (sel[0] === '3' && n >= 25 && n <= 36);
+    if (bet.type === 'column') return n >= 1 && n <= 36 && ((n - Number(sel[0])) % 3 === 0);
+    return false;
+}
+
+function rouletteOdds(type) {
+    return ({ straight: 35, split: 17, street: 11, corner: 8, basket: 6, column: 2, dozen: 2, red: 1, black: 1, even: 1, odd: 1 })[type] || 0;
+}
+
+function spinRoulette(room) {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
+    const wheel = rouletteWheel(data.isAmerican);
+    const winningIndex = Math.floor(Math.random() * wheel.length);
+    const winningNumber = wheel[winningIndex];
+    data.phase = 'spinning';
+    data.winningNumber = winningNumber;
+    data.winningIndex = winningIndex;
+    data.spinSeq = (data.spinSeq || 0) + 1;
+    data.message = `Wheel spinning in ${data.isAmerican ? 'American' : 'European'} mode...`;
+    markTableSound(room, 'roll');
+    sendTableState(room);
+    setTimeout(() => {
+        if (room.tableData !== data) return;
+        data.players.forEach(player => {
+            let returned = 0;
+            for (const bet of player.bets || []) {
+                if (rouletteBetWins(bet, winningNumber, data.isAmerican)) returned += bet.amount * (rouletteOdds(bet.type) + 1);
+            }
+            player.chips += returned;
+            player.result = returned ? `won ${returned}` : ((player.bets || []).length ? 'lose' : null);
+            player.bets = [];
+            player.bet = 0;
+        });
+        data.pot = 0;
+        data.phase = 'result';
+        data.history.unshift({ number: winningNumber, color: rouletteColor(winningNumber) });
+        data.history = data.history.slice(0, 10);
+        data.message = `Roulette result: ${winningNumber} ${rouletteColor(winningNumber).toUpperCase()}. Place new virtual-chip bets or spin again.`;
+        sendTableState(room);
+    }, 3600);
+}
+
+function setRouletteMode(room, isAmerican) {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
+    data.isAmerican = !!isAmerican;
+    data.players.forEach(p => { p.bets = []; p.bet = 0; p.result = null; });
+    data.pot = 0;
+    data.winningNumber = null;
+    data.winningIndex = null;
+    data.message = `${data.isAmerican ? 'American' : 'European'} Roulette selected. ${data.isAmerican ? '00 and basket bets are enabled.' : '00 and basket bets are disabled.'}`;
+    sendTableState(room);
+}
+
+function addBankDiceBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase === 'rolling') return false;
+    const type = String(bet.betType || 'pass');
+    if (!['pass','dontPass','come','dontCome','field'].includes(type)) return false;
+    player.chips -= amount;
+    if (type === 'come' || type === 'dontCome') player.bets[type].push({ amount, point: null });
+    else player.bets[type] = (player.bets[type] || 0) + amount;
+    player.bet = (player.bet || 0) + amount;
+    data.pot += amount;
+    data.phase = data.phase || 'comeout';
+    data.message = `${player.name} placed ${amount} on ${type}.`;
+    sendTableState(room);
+    return true;
+}
+
+function payPlayer(player, amount) {
+    player.chips += Math.max(0, Math.floor(amount));
+}
+
+function settleBankDiceBet(player, key, outcome) {
+    const amount = player.bets[key] || 0;
+    if (!amount) return;
+    if (outcome === 'win') payPlayer(player, amount * 2);
+    if (outcome === 'push') payPlayer(player, amount);
+    player.bets[key] = 0;
+}
+
+function settleBankDice(room, d1, d2) {
+    const data = room.tableData;
+    const total = d1 + d2;
+    data.players.forEach(player => {
+        player.result = null;
+        const field = player.bets.field || 0;
+        if (field) {
+            if ([3,4,9,10,11].includes(total)) { payPlayer(player, field * 2); player.result = 'field win'; }
+            else if ([2,12].includes(total)) { payPlayer(player, field * 3); player.result = 'field double'; }
+            else player.result = 'field lose';
+            player.bets.field = 0;
+        }
+        for (const come of player.bets.come || []) {
+            if (come.point && total === come.point) { payPlayer(player, come.amount * 2); come.done = true; player.result = 'come win'; }
+            else if (come.point && total === 7) { come.done = true; player.result = player.result || 'seven out'; }
+        }
+        player.bets.come = (player.bets.come || []).filter(b => !b.done);
+        for (const come of player.bets.dontCome || []) {
+            if (come.point && total === 7) { payPlayer(player, come.amount * 2); come.done = true; player.result = 'don\'t come win'; }
+            else if (come.point && total === come.point) { come.done = true; player.result = player.result || 'don\'t come lose'; }
+        }
+        player.bets.dontCome = (player.bets.dontCome || []).filter(b => !b.done);
+    });
+
+    if (!data.point) {
+        if ([7,11].includes(total)) data.players.forEach(p => { settleBankDiceBet(p, 'pass', 'win'); settleBankDiceBet(p, 'dontPass', 'lose'); });
+        else if ([2,3].includes(total)) data.players.forEach(p => { settleBankDiceBet(p, 'pass', 'lose'); settleBankDiceBet(p, 'dontPass', 'win'); });
+        else if (total === 12) data.players.forEach(p => { settleBankDiceBet(p, 'pass', 'lose'); settleBankDiceBet(p, 'dontPass', 'push'); });
+        else data.point = total;
+    } else if (total === data.point) {
+        data.players.forEach(p => { settleBankDiceBet(p, 'pass', 'win'); settleBankDiceBet(p, 'dontPass', 'lose'); });
+        data.point = null;
+    } else if (total === 7) {
+        data.players.forEach(p => { settleBankDiceBet(p, 'pass', 'lose'); settleBankDiceBet(p, 'dontPass', 'win'); });
+        data.point = null;
+    }
+
+    data.players.forEach(player => {
+        for (const come of player.bets.come || []) {
+            if (!come.point) {
+                if ([7,11].includes(total)) { payPlayer(player, come.amount * 2); come.done = true; player.result = 'come win'; }
+                else if ([2,3,12].includes(total)) { come.done = true; player.result = player.result || 'come lose'; }
+                else come.point = total;
+            }
+        }
+        player.bets.come = (player.bets.come || []).filter(b => !b.done);
+        for (const come of player.bets.dontCome || []) {
+            if (!come.point) {
+                if ([2,3].includes(total)) { payPlayer(player, come.amount * 2); come.done = true; player.result = 'don\'t come win'; }
+                else if (total === 12) { payPlayer(player, come.amount); come.done = true; player.result = 'don\'t come push'; }
+                else if ([7,11].includes(total)) { come.done = true; player.result = player.result || 'don\'t come lose'; }
+                else come.point = total;
+            }
+        }
+        player.bets.dontCome = (player.bets.dontCome || []).filter(b => !b.done);
+    });
+
+    data.phase = data.point ? 'point' : 'comeout';
+    data.pot = data.players.reduce((sum, p) => sum + (p.bets.pass || 0) + (p.bets.dontPass || 0) + (p.bets.field || 0) + (p.bets.come || []).reduce((s, b) => s + b.amount, 0) + (p.bets.dontCome || []).reduce((s, b) => s + b.amount, 0), 0);
+    data.players.forEach(p => { p.bet = (p.bets.pass || 0) + (p.bets.dontPass || 0) + (p.bets.field || 0) + (p.bets.come || []).reduce((sum, b) => sum + b.amount, 0) + (p.bets.dontCome || []).reduce((sum, b) => sum + b.amount, 0); });
+    data.history.unshift({ dice: [d1, d2], total, point: data.point });
+    data.history = data.history.slice(0, 10);
+    data.message = `Bank Dice rolled ${d1} + ${d2} = ${total}.${data.point ? ` Point is ${data.point}.` : ' Come-out roll next.'}`;
+}
+
+function rollBankDice(room) {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'bank_dice' || data.phase === 'rolling') return;
+    const d1 = 1 + Math.floor(Math.random() * 6);
+    const d2 = 1 + Math.floor(Math.random() * 6);
+    data.phase = 'rolling';
+    data.dice = ['-', '-'];
+    data.finalDice = [d1, d2];
+    data.rollSeq = (data.rollSeq || 0) + 1;
+    data.message = 'Bank Dice rolling across the table...';
+    markTableSound(room, 'roll');
+    sendTableState(room);
+    setTimeout(() => { if (room.tableData !== data) return; data.dice = [d1, d2]; settleBankDice(room, d1, d2); sendTableState(room); }, 1700);
+}
+
+function addBaccaratBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase !== 'betting') return false;
+    const type = String(bet.betType || 'player');
+    if (!['player','banker','tie'].includes(type)) return false;
+    player.chips -= amount;
+    player.bets[type] = (player.bets[type] || 0) + amount;
+    player.bet = Object.values(player.bets).reduce((a, b) => a + b, 0);
+    data.pot += amount;
+    data.message = `${player.name} backed ${type} for ${amount}.`;
+    sendTableState(room);
+    return true;
+}
+
+function baccaratCardValue(card) {
+    if (!card) return 0;
+    if (['10','J','Q','K'].includes(card.rank)) return 0;
+    if (card.rank === 'A') return 1;
+    return Number(card.rank) || 0;
+}
+
+function baccaratTotal(cards) {
+    return (cards || []).reduce((sum, card) => sum + baccaratCardValue(card), 0) % 10;
+}
+
+function shouldBankerDraw(bankerTotal, playerThirdValue) {
+    if (playerThirdValue == null) return bankerTotal <= 5;
+    if (bankerTotal <= 2) return true;
+    if (bankerTotal === 3) return playerThirdValue !== 8;
+    if (bankerTotal === 4) return playerThirdValue >= 2 && playerThirdValue <= 7;
+    if (bankerTotal === 5) return playerThirdValue >= 4 && playerThirdValue <= 7;
+    if (bankerTotal === 6) return playerThirdValue === 6 || playerThirdValue === 7;
+    return false;
+}
+
+function dealBaccarat(room) {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'baccarat' || data.phase !== 'betting') return;
+    room.deck = buildDeck();
+    data.playerHand = [room.deck.pop(), room.deck.pop()];
+    data.bankerHand = [room.deck.pop(), room.deck.pop()];
+    let playerTotal = baccaratTotal(data.playerHand);
+    let bankerTotal = baccaratTotal(data.bankerHand);
+    let playerThirdValue = null;
+    if (playerTotal < 8 && bankerTotal < 8) {
+        if (playerTotal <= 5) {
+            const third = room.deck.pop();
+            data.playerHand.push(third);
+            playerThirdValue = baccaratCardValue(third);
+            playerTotal = baccaratTotal(data.playerHand);
+        }
+        if (shouldBankerDraw(bankerTotal, playerThirdValue)) {
+            data.bankerHand.push(room.deck.pop());
+            bankerTotal = baccaratTotal(data.bankerHand);
+        }
+    }
+    const winner = playerTotal === bankerTotal ? 'tie' : (playerTotal > bankerTotal ? 'player' : 'banker');
+    data.winner = winner;
+    data.players.forEach(player => {
+        const bets = player.bets || {};
+        if (winner === 'tie') {
+            if (bets.player) payPlayer(player, bets.player);
+            if (bets.banker) payPlayer(player, bets.banker);
+            if (bets.tie) payPlayer(player, bets.tie * 9);
+        } else if (winner === 'player') {
+            if (bets.player) payPlayer(player, bets.player * 2);
+        } else if (winner === 'banker') {
+            if (bets.banker) payPlayer(player, Math.floor(bets.banker * 1.95));
+        }
+        player.result = `${winner} ${winner === 'banker' ? '(5% commission)' : 'wins'}`;
+        player.bet = 0;
+        player.bets = { player: 0, banker: 0, tie: 0 };
+    });
+    data.pot = 0;
+    data.phase = 'settled';
+    data.dealSeq = (data.dealSeq || 0) + 1;
+    data.history.unshift({ winner, playerTotal, bankerTotal });
+    data.history = data.history.slice(0, 10);
+    data.message = `Baccarat: Player ${playerTotal}, Banker ${bankerTotal}. ${winner.toUpperCase()} wins.`;
+    markTableSound(room, winner === 'tie' ? 'ding' : 'card');
+    sendTableState(room);
+}
+
+function resetCasinoRound(room) {
+    const data = room.tableData;
+    if (!data) return;
+    if (room.gameType === 'roulette') {
+        data.players.forEach(p => { p.bets = []; p.bet = 0; p.result = null; });
+        data.pot = 0; data.phase = 'betting'; data.message = 'Place virtual-chip roulette bets.'; sendTableState(room);
+    }
+    if (room.gameType === 'baccarat') {
+        data.playerHand = []; data.bankerHand = []; data.winner = null; data.phase = 'betting'; data.message = 'Place Player, Banker, or Tie bets.'; sendTableState(room);
+    }
+}
+
 function startTableGame(room) {
     room.state = 'playing';
     room.deck = buildDeck();
@@ -904,6 +1253,41 @@ function startTableGame(room) {
             turnIdx: currentPlayerIdx({ players: makeChipPlayers(room, 3), turnIdx: 0 }, room),
             dice: [],
             message: 'Roll LCR dice. L passes left, R passes right, C goes to center.',
+        };
+    } else if (room.gameType === 'roulette') {
+        room.tableData = {
+            players: makeChipPlayers(room, 1000).map(p => ({ ...p, bets: [] })),
+            pot: 0,
+            phase: 'betting',
+            isAmerican: true,
+            winningNumber: null,
+            winningIndex: null,
+            spinSeq: 0,
+            history: [],
+            message: 'American Roulette selected by default. Use play-money chips only; no real-money transactions exist.',
+        };
+    } else if (room.gameType === 'bank_dice') {
+        room.tableData = {
+            players: makeChipPlayers(room, 1000).map(p => ({ ...p, bets: { pass: 0, dontPass: 0, come: [], dontCome: [], field: 0 } })),
+            pot: 0,
+            phase: 'comeout',
+            point: null,
+            dice: [],
+            rollSeq: 0,
+            history: [],
+            message: 'Bank Dice come-out roll. Place Pass, Don\'t Pass, Come, Don\'t Come, or Field bets with virtual chips.',
+        };
+    } else if (room.gameType === 'baccarat') {
+        room.tableData = {
+            players: makeChipPlayers(room, 1000).map(p => ({ ...p, bets: { player: 0, banker: 0, tie: 0 } })),
+            playerHand: [],
+            bankerHand: [],
+            pot: 0,
+            phase: 'betting',
+            winner: null,
+            dealSeq: 0,
+            history: [],
+            message: 'Punto Banco Baccarat: bet Player, Banker, or Tie. Drawing rules are automatic.',
         };
     } else if (room.gameType === 'bingo') {
         room.tableData = {
@@ -1115,6 +1499,12 @@ wss.on('connection', (ws) => {
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
         if (msg.type === 'table_bet') { handleTableBet(myRoom, myIdx, msg.amount); return; }
+        if (msg.type === 'casino_bet') { addCasinoBet(myRoom, myIdx, msg); return; }
+        if (msg.type === 'roulette_spin') { if (myIdx === 0) spinRoulette(myRoom); return; }
+        if (msg.type === 'roulette_set_mode') { if (myIdx === 0) setRouletteMode(myRoom, !!msg.isAmerican); return; }
+        if (msg.type === 'bank_dice_roll') { if (myIdx === 0) rollBankDice(myRoom); return; }
+        if (msg.type === 'baccarat_deal') { if (myIdx === 0) dealBaccarat(myRoom); return; }
+        if (msg.type === 'casino_new_round') { if (myIdx === 0) resetCasinoRound(myRoom); return; }
         if (msg.type === 'done_betting') { handleDoneBetting(myRoom, myIdx); return; }
         if (msg.type === 'bj_insurance') { handleBlackjackInsurance(myRoom, myIdx, !!msg.take); return; }
         if (msg.type === 'table_play_again') { if (myIdx === 0 && myRoom?.gameType === 'blackjack_chips') resetBlackjackHand(myRoom); if (myIdx === 0 && myRoom?.gameType === 'texas_holdem') { startHoldemHand(myRoom); sendTableState(myRoom); } return; }
