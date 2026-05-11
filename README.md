@@ -12,7 +12,7 @@ Tabletop Online is a browser-based multiplayer table room for friends. Create a 
   - Texas Hold'em
   - Bingo with Easy and Hard draw modes
   - Left Center Right
-  - Roulette with American/European layouts, server-side outcomes, and play-money chip betting
+  - Roulette with American/European tables and play-money chip betting
   - Bank Dice, a family-friendly craps-rules dice table
   - Punto Banco Baccarat with automated third-card rules
   - Chat Room mode

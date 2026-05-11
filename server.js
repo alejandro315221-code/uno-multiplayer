@@ -775,6 +775,22 @@ function handleTableBet(room, playerIdx, amount) {
     sendTableState(room);
 }
 
+
+function refundBlackjackBet(room, playerIdx, amount) {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'blackjack_chips') return;
+    const player = data.players[playerIdx];
+    if (!player || data.phase !== 'betting' || player.doneBetting) return;
+    const refund = Math.max(1, Math.min(Math.floor(Number(amount || 0)), player.bet || 0));
+    if (!refund) return;
+    player.bet -= refund;
+    player.chips += refund;
+    data.pot = Math.max(0, (data.pot || 0) - refund);
+    data.message = `${player.name} removed ${refund} from their bet.`;
+    markTableSound(room, 'click');
+    sendTableState(room);
+}
+
 function handleDoneBetting(room, playerIdx) {
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips' || data.phase !== 'betting') return;
@@ -923,6 +939,81 @@ function addCasinoBet(room, playerIdx, bet) {
     if (room.gameType === 'bank_dice') return addBankDiceBet(room, player, bet, amount);
     if (room.gameType === 'baccarat') return addBaccaratBet(room, player, bet, amount);
     return false;
+}
+
+
+function sameSelection(a = [], b = []) {
+    const aa = [...a].map(String).sort().join('|');
+    const bb = [...b].map(String).sort().join('|');
+    return aa === bb;
+}
+
+function subtractCasinoBet(room, playerIdx, bet) {
+    const data = room.tableData;
+    const player = data?.players?.[playerIdx];
+    if (!data || !player || !room.players[playerIdx]?.connected) return false;
+    const amount = Math.max(1, Math.floor(Number(bet.amount || 0)));
+    if (room.gameType === 'roulette') return subtractRouletteBet(room, player, bet, amount);
+    if (room.gameType === 'bank_dice') return subtractBankDiceBet(room, player, bet, amount);
+    if (room.gameType === 'baccarat') return subtractBaccaratBet(room, player, bet, amount);
+    return false;
+}
+
+function refundCasinoAmount(room, player, amount) {
+    const refund = Math.max(0, Math.floor(amount));
+    if (!refund) return false;
+    player.chips += refund;
+    player.bet = Math.max(0, (player.bet || 0) - refund);
+    room.tableData.pot = Math.max(0, (room.tableData.pot || 0) - refund);
+    room.tableData.message = `${player.name} removed ${refund} from their bet.`;
+    markTableSound(room, 'click');
+    sendTableState(room);
+    return true;
+}
+
+function subtractRouletteBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase === 'spinning') return false;
+    const type = String(bet.betType || 'straight');
+    const selection = Array.isArray(bet.selection) ? bet.selection.map(String) : [String(bet.selection ?? '')];
+    if (type === 'basket') selection.splice(0, selection.length, '0', '00', '1', '2', '3');
+    const idx = [...(player.bets || [])].reverse().findIndex(existing => existing.type === type && sameSelection(existing.selection, selection));
+    if (idx < 0) return false;
+    const realIdx = player.bets.length - 1 - idx;
+    const existing = player.bets[realIdx];
+    const refund = Math.min(amount, existing.amount);
+    existing.amount -= refund;
+    if (existing.amount <= 0) player.bets.splice(realIdx, 1);
+    return refundCasinoAmount(room, player, refund);
+}
+
+function subtractBankDiceBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase === 'rolling') return false;
+    const type = String(bet.betType || 'pass');
+    let refund = 0;
+    if (type === 'come' || type === 'dontCome') {
+        const list = player.bets[type] || [];
+        const idx = list.length - 1;
+        if (idx < 0) return false;
+        refund = Math.min(amount, list[idx].amount);
+        list[idx].amount -= refund;
+        if (list[idx].amount <= 0) list.splice(idx, 1);
+    } else if (['pass','dontPass','field'].includes(type)) {
+        refund = Math.min(amount, player.bets[type] || 0);
+        player.bets[type] = Math.max(0, (player.bets[type] || 0) - refund);
+    }
+    return refundCasinoAmount(room, player, refund);
+}
+
+function subtractBaccaratBet(room, player, bet, amount) {
+    const data = room.tableData;
+    if (data.phase !== 'betting') return false;
+    const type = String(bet.betType || 'player');
+    if (!['player','banker','tie'].includes(type)) return false;
+    const refund = Math.min(amount, player.bets[type] || 0);
+    player.bets[type] = Math.max(0, (player.bets[type] || 0) - refund);
+    return refundCasinoAmount(room, player, refund);
 }
 
 function addRouletteBet(room, player, bet, amount) {
@@ -1499,7 +1590,9 @@ wss.on('connection', (ws) => {
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'pass') { handlePass(myRoom, myIdx); return; }
         if (msg.type === 'table_bet') { handleTableBet(myRoom, myIdx, msg.amount); return; }
+        if (msg.type === 'table_bet_subtract') { refundBlackjackBet(myRoom, myIdx, msg.amount); return; }
         if (msg.type === 'casino_bet') { addCasinoBet(myRoom, myIdx, msg); return; }
+        if (msg.type === 'casino_bet_subtract') { subtractCasinoBet(myRoom, myIdx, msg); return; }
         if (msg.type === 'roulette_spin') { if (myIdx === 0) spinRoulette(myRoom); return; }
         if (msg.type === 'roulette_set_mode') { if (myIdx === 0) setRouletteMode(myRoom, !!msg.isAmerican); return; }
         if (msg.type === 'bank_dice_roll') { if (myIdx === 0) rollBankDice(myRoom); return; }
