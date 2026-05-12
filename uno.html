@@ -3,55 +3,140 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>UNO Multiplayer</title>
-  <link rel="icon" href="<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23e63946'/%3E%3Cellipse cx='50' cy='50' rx='40' ry='25' fill='white' transform='rotate(-45 50 50)'/%3E%3Ctext x='50%25' y='65%25' font-family='Arial, sans-serif' font-weight='900' font-size='55' fill='%23e63946' text-anchor='middle'%3EU%3C/text%3E%3C/svg%3E">
+<title>Tabletop Online</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="shortcut icon" href="/favicon.svg">
 <style>
 /* ── Reset & Base ───────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
 
-/* ── Lobby / Join screen ───────────────────────────────── */
+/* ── Launch gate ───────────────────────────────────────── */
+#screen-launch{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+#screen-launch::before{content:'';position:absolute;inset:-25%;background:radial-gradient(circle at 50% 42%,rgba(76,201,240,.35),transparent 30%),radial-gradient(circle at 50% 120%,rgba(255,89,94,.22),transparent 42%);animation:launchAura 3s ease-in-out infinite alternate}
+.launch-panel{position:relative;z-index:1;text-align:center;color:#f8fbff;padding:28px}
+.launch-title{font-size:clamp(2.3rem,8vw,5.5rem);font-weight:950;letter-spacing:-3px;text-shadow:0 0 34px rgba(76,201,240,.65);margin-bottom:20px}
+.launch-subtitle{color:#b8c8dc;font-weight:800;margin-bottom:26px}
+.launch-btn{border:none;border-radius:999px;padding:18px 30px;font-size:1.08rem;font-weight:950;letter-spacing:.4px;color:#07111d;background:linear-gradient(135deg,#4cc9f0,#8ac926);cursor:pointer;box-shadow:0 0 0 0 rgba(76,201,240,.7),0 18px 44px rgba(0,0,0,.55);animation:launchPulse 1.25s infinite;transition:transform .15s,filter .15s}
+.launch-btn:hover{transform:translateY(-2px) scale(1.03);filter:brightness(1.08)}
+@keyframes launchPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.72),0 18px 44px rgba(0,0,0,.55)}70%{box-shadow:0 0 0 18px rgba(76,201,240,0),0 18px 44px rgba(0,0,0,.55)}100%{box-shadow:0 0 0 0 rgba(76,201,240,0),0 18px 44px rgba(0,0,0,.55)}}
+@keyframes launchAura{from{transform:scale(1);opacity:.8}to{transform:scale(1.08);opacity:1}}
+
+/* ── Startup / Join / Lobby screens ───────────────────── */
 #screen-join{position:fixed;inset:0;display:flex;align-items:center;
-  justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1b3a5c,#0d1b2a)}
-.join-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);
-  border-radius:20px;padding:40px 48px;width:380px;max-width:94vw;text-align:center;
-  box-shadow:0 8px 40px rgba(0,0,0,0.5)}
-.join-box h1{font-size:3rem;font-weight:900;letter-spacing:-1px;color:#fff;margin-bottom:4px}
-.join-box h1 span{color:#ff595e}
-.join-box p{color:#778da9;margin-bottom:28px;font-size:.95rem}
+  justify-content:center;overflow:hidden;background:#07090f;animation:startupGlow 3.2s ease-out forwards}
+#screen-join::before{content:'';position:absolute;inset:-20%;background:
+  radial-gradient(ellipse at 50% 26%,rgba(76,201,240,.95),transparent 34%),
+  linear-gradient(110deg,transparent 0 38%,rgba(255,255,255,.45) 48%,transparent 58%);
+  opacity:0;transform:translateX(-18%);animation:shineSweep 2.4s ease-out .55s forwards;pointer-events:none}
+#screen-join::after{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse at 50% 20%,rgba(255,255,255,.18),transparent 22%),
+  radial-gradient(ellipse at 50% 115%,rgba(76,201,240,.24),transparent 45%);
+  pointer-events:none}
+.join-box{position:relative;z-index:1;background:rgba(10,16,28,.82);border:1px solid rgba(255,255,255,.18);
+  border-radius:24px;padding:38px 44px;width:410px;max-width:94vw;text-align:center;
+  box-shadow:0 20px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(16px);animation:cardRise .8s ease-out 2.15s both}
+.brand-lockup{display:flex;flex-direction:column;align-items:center;line-height:.9;margin-bottom:12px;
+  animation:brandSettle .9s cubic-bezier(.2,.8,.2,1) 2.1s both}
+.brand-tabletop{font-size:3.1rem;font-weight:950;letter-spacing:-2px;color:#f8fbff;text-shadow:0 10px 32px rgba(76,201,240,.55);
+  transform:translateX(-120vw);animation:slideTabletop 1.05s cubic-bezier(.16,1,.3,1) .15s forwards}
+.brand-online{font-size:2.25rem;font-weight:900;letter-spacing:2px;color:#4cc9f0;text-transform:uppercase;
+  transform:translateY(90px);opacity:0;animation:slideOnline .9s cubic-bezier(.16,1,.3,1) .85s forwards}
+.join-box p{color:#b8c8dc;margin-bottom:22px;font-size:.95rem;animation:fadeIn .5s ease-out 2.55s both}
+.join-form{animation:fadeIn .55s ease-out 2.65s both}
 .join-box input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #415a77;
   background:#1b2d42;color:#e0e1dd;font-size:1rem;margin-bottom:12px;outline:none}
 .join-box input:focus{border-color:#4cc9f0}
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;cursor:pointer;
   font-size:1rem;font-weight:700;background:linear-gradient(135deg,#ff595e,#e63946);
-  color:#fff;letter-spacing:.5px;transition:filter .15s}
-.btn-primary:hover{filter:brightness(1.12)}
+  color:#fff;letter-spacing:.5px;transition:filter .15s,transform .15s}
+.btn-primary:hover{filter:brightness(1.12);transform:translateY(-1px)}
 .btn-secondary{width:100%;padding:11px;border-radius:10px;border:1px solid #415a77;
   cursor:pointer;font-size:.95rem;font-weight:600;background:transparent;
-  color:#778da9;margin-top:8px;transition:all .15s}
+  color:#9fb4cb;margin-top:8px;transition:all .15s}
 .btn-secondary:hover{background:#415a77;color:#e0e1dd}
 .join-err{color:#ff595e;font-size:.85rem;margin-top:6px;min-height:1.1em}
+.audio-unlock{display:none;margin-top:12px;padding:10px 12px;border:1px solid rgba(76,201,240,.45);border-radius:12px;background:rgba(76,201,240,.12);color:#dff8ff;font-size:.86rem}
+.audio-unlock.show{display:block;animation:fadeIn .2s ease-out both}
+.audio-unlock button{margin-top:8px;width:100%;padding:9px 10px;border-radius:9px;border:none;background:#4cc9f0;color:#06101a;font-weight:800;cursor:pointer}
+.select-input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #415a77;background:#1b2d42;color:#e0e1dd;font-size:1rem;margin-bottom:12px;outline:none}
 
-/* ── Lobby screen ───────────────────────────────────────── */
 #screen-lobby{position:fixed;inset:0;display:none;flex-direction:column;
   align-items:center;justify-content:center;gap:20px;
-  background:radial-gradient(ellipse at 50% 30%,#1b3a5c,#0d1b2a)}
-.lobby-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);
-  border-radius:20px;padding:32px 40px;width:440px;max-width:94vw;text-align:center}
-.lobby-box h2{font-size:1.5rem;font-weight:700;margin-bottom:4px}
-.room-code{font-size:2.5rem;font-weight:900;letter-spacing:6px;color:#4cc9f0;margin:8px 0}
+  background:radial-gradient(ellipse at 50% 20%,#576170,#1b2433 50%,#101724)}
+.lobby-box{background:rgba(9,14,24,.82);border:1px solid rgba(255,255,255,.18);
+  border-radius:24px;padding:30px 36px;width:520px;max-width:94vw;text-align:center;
+  box-shadow:0 20px 70px rgba(0,0,0,.48);backdrop-filter:blur(14px)}
+.lobby-box h2{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+.room-code{font-size:2.7rem;font-weight:950;letter-spacing:6px;color:#4cc9f0;margin:8px 0;text-shadow:0 0 22px rgba(76,201,240,.35)}
 .lobby-players{list-style:none;margin:16px 0;display:flex;flex-wrap:wrap;
   gap:8px;justify-content:center}
-.lobby-players li{background:#1b2d42;border-radius:8px;padding:6px 14px;
+.lobby-players li{background:#1b2d42;border-radius:999px;padding:7px 14px;
   font-size:.9rem;border:1px solid #415a77}
 .lobby-players li.host::after{content:' 👑';font-size:.8rem}
 .btn-start{padding:13px 40px;border-radius:10px;border:none;cursor:pointer;
   font-size:1rem;font-weight:700;background:linear-gradient(135deg,#8ac926,#4caf50);
-  color:#0d1b2a;letter-spacing:.5px;transition:filter .15s;margin-top:8px}
-.btn-start:hover{filter:brightness(1.12)}
-.btn-start:disabled{opacity:.45;cursor:not-allowed}
-.waiting-hint{color:#778da9;font-size:.85rem;margin-top:10px}
+  color:#0d1b2a;letter-spacing:.5px;transition:filter .15s,transform .15s;margin-top:8px}
+.btn-start:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn-start:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.waiting-hint{color:#9fb4cb;font-size:.85rem;margin-top:10px}
+.lobby-options{margin-top:12px;text-align:left;background:rgba(0,0,0,.24);border:1px solid #415a77;border-radius:12px;padding:10px 12px}
+.lobby-options label{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.88rem;color:#e0e1dd}
+.lobby-options button{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:#e63946;color:#fff;font-weight:700;cursor:pointer}
+.lobby-options button:disabled{opacity:.45;cursor:not-allowed}
+.info-button-row{display:flex;gap:8px;margin-top:8px}
+.info-button-row .btn-secondary{margin-top:0}
+
+#info-modal{position:fixed;inset:0;background:rgba(3,5,10,.76);display:none;align-items:center;justify-content:center;z-index:120;padding:18px}
+#info-modal.open{display:flex}
+.info-box{width:min(760px,96vw);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#1b2d42,#101724);border:1px solid rgba(255,255,255,.18);border-radius:20px;box-shadow:0 24px 90px rgba(0,0,0,.65);padding:22px}
+.info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.info-head h2{font-size:1.45rem;color:#4cc9f0}
+.info-close{width:auto;padding:8px 12px;margin:0}
+.info-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.info-tab{border:1px solid #415a77;background:#142236;color:#d7e4f3;border-radius:999px;padding:8px 12px;cursor:pointer;font-weight:700;font-size:.82rem}
+.info-tab.active{background:#4cc9f0;color:#0d1b2a;border-color:#4cc9f0}
+#info-content{color:#d8e5f4;line-height:1.5;font-size:.92rem}
+#info-content h3{color:#fff;margin:8px 0}
+#info-content ul{padding-left:20px;margin:8px 0 12px}
+#info-content li{margin:4px 0}
+.poker-hands{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:10px}
+.poker-hand{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px}
+.bingo-guide-card{display:grid;grid-template-columns:repeat(5,42px);gap:6px;margin:12px 0;justify-content:start}
+.bingo-cell{height:42px;border-radius:8px;background:#f8fbff;color:#0d1b2a;display:flex;align-items:center;justify-content:center;font-weight:900;border:2px solid #4cc9f0}
+.bingo-cell.free{background:#ffca3a;color:#141414}
+.mark-callout{display:inline-flex;align-items:center;gap:8px;background:#ff595e;color:#fff;border-radius:999px;padding:8px 12px;font-weight:900;letter-spacing:.5px;margin-top:6px;box-shadow:0 0 20px rgba(255,89,94,.35)}
+.chip-guide{display:flex;gap:10px;align-items:center;margin:12px 0}
+.chip{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:950;color:#fff;border:5px dashed rgba(255,255,255,.75);box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.chip.red{background:#e63946}.chip.blue{background:#1982c4}.chip.green{background:#2a9d8f}
+
+#game-showcase{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);z-index:18;display:none;width:min(880px,94vw);pointer-events:none;perspective:1200px}
+.showcase-table{background:radial-gradient(ellipse at 50% 38%,rgba(35,120,72,.96),rgba(9,48,31,.98));border:8px solid #5b371f;border-radius:48px;min-height:390px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.65), inset 0 0 50px rgba(255,255,255,.08);position:relative;overflow:hidden;transform:rotateX(7deg);transform-origin:center bottom}
+.showcase-title{text-align:center;font-weight:950;font-size:1.35rem;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+.showcase-message{text-align:center;color:#0d1b2a;background:#ffca3a;font-size:.92rem;margin:8px auto 14px;max-width:680px;padding:8px 12px;border-radius:999px;font-weight:900;box-shadow:0 8px 18px rgba(0,0,0,.25)}
+.showcase-pot{position:absolute;right:30px;top:78px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-weight:900;max-width:150px;text-align:center}.pot-counter{min-width:88px;padding:12px 14px;border-radius:16px;background:rgba(13,27,42,.88);border:2px solid #ffca3a;color:#ffca3a;font-size:1.55rem;line-height:1;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.showcase-community{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
+.mini-playing-card{width:44px;height:62px;border-radius:7px;background:linear-gradient(145deg,#fff,#dfe7f2);color:#111;display:flex;align-items:center;justify-content:center;font-weight:950;border:1px solid rgba(0,0,0,.18);box-shadow:0 6px 12px rgba(0,0,0,.28)}
+.mini-playing-card.red{color:#d62839}.mini-playing-card.hidden{background:linear-gradient(135deg,#1a2d8a,#0f1f6b);color:#fff}
+.showcase-players{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:18px}
+.showcase-seat{background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:10px;color:#fff;min-height:112px}
+.showcase-seat.you{border-color:#4cc9f0;box-shadow:0 0 18px rgba(76,201,240,.25)}
+.showcase-seat-name{font-weight:850;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.showcase-seat-cards{display:flex;gap:4px;margin:8px 0;min-height:30px}
+.table-chip{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:950;color:#fff;border:5px dashed rgba(255,255,255,.78);box-shadow:0 8px 16px rgba(0,0,0,.35);margin-right:-8px;animation:none}
+.table-chip.red{background:#e63946}.table-chip.blue{background:#1982c4}.table-chip.green{background:#2a9d8f}.table-chip.lcr{background:#fca311;color:#0d1b2a;border-color:#0d1b2a;font-size:.72rem}
+.bingo-call{font-size:3rem;text-align:center;color:#ffca3a;font-weight:950;text-shadow:0 4px 20px rgba(0,0,0,.6)}.bingo-call.rolling{animation:diePop .22s ease both;color:#eef3f8}.mark-callout.live{display:inline-flex;margin:8px auto;animation:pulse-red 1.1s infinite;background:#ff595e;color:#fff;border-radius:999px;padding:7px 14px}.bingo-all-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;max-height:310px;overflow:auto;margin-top:10px}.bingo-player-card{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:8px}.bingo-player-name{font-size:.78rem;font-weight:900;color:#dbe9f7;margin-bottom:5px}.bingo-player-card .bingo-live-card{grid-template-columns:repeat(5,28px);gap:3px;margin:0 auto}.bingo-player-card .bingo-head,.bingo-player-card .bingo-live-cell{height:26px;font-size:.68rem;border-radius:5px}.bingo-player-card.you{border-color:#4cc9f0;box-shadow:0 0 18px rgba(76,201,240,.25)}.bingo-player-card:not(.you) .bingo-live-cell{cursor:default;pointer-events:none}
+.dice-row{display:flex;gap:8px;justify-content:center;margin:10px 0}.die{width:42px;height:42px;border-radius:9px;background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:950;font-size:1.2rem;box-shadow:0 8px 16px rgba(0,0,0,.35);animation:diePop .22s ease both}.die.blank{color:#aaa;background:#eef3f8;animation:none}.casino-layout{display:grid;grid-template-columns:minmax(260px,380px) 1fr;gap:14px;align-items:start;margin-top:10px}.casino-panel{background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:10px}.roulette-canvas,.dice-canvas{width:100%;max-width:360px;aspect-ratio:1/1;background:radial-gradient(circle,#143d2b,#07140f);border-radius:50%;box-shadow:inset 0 0 35px rgba(0,0,0,.75),0 10px 24px rgba(0,0,0,.35)}.dice-canvas{border-radius:16px;aspect-ratio:1.75/1;background:linear-gradient(135deg,#0c6b3a,#05351e)}.roulette-grid{display:grid;grid-template-columns:repeat(12,minmax(28px,1fr));gap:4px}.roulette-zeroes{display:flex;gap:4px;margin-bottom:5px}.casino-bet-zone,.roulette-slot{border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:7px 5px;text-align:center;font-weight:900;color:#fff;background:rgba(255,255,255,.08);cursor:pointer;user-select:none}.roulette-slot.red{background:#a61d2b}.roulette-slot.black{background:#15181f}.roulette-slot.green{background:#137a45}.casino-bet-zone:hover,.roulette-slot:hover{transform:translateY(-1px);filter:brightness(1.15)}.casino-wide{grid-column:span 4}.casino-half{grid-column:span 6}.casino-third{grid-column:span 4}.casino-history{display:flex;gap:5px;overflow:hidden;justify-content:center;margin:8px 0}.history-pill{min-width:32px;border-radius:999px;padding:5px 8px;color:#fff;font-weight:950}.history-pill.red{background:#a61d2b}.history-pill.black{background:#15181f}.history-pill.green{background:#137a45}.chip-picker{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}.chip-picker button.active{outline:3px solid #ffca3a}.showcase-table{transform-style:preserve-3d;perspective:900px;box-shadow:0 30px 70px rgba(0,0,0,.48),inset 0 8px 25px rgba(255,255,255,.08);background:radial-gradient(ellipse at center,#185d45 0%,#123926 52%,#071b13 100%);border:1px solid rgba(255,255,255,.2)}.showcase-seat,.casino-panel{transform:translateZ(18px);box-shadow:0 16px 28px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14)}.casino-panel{background:linear-gradient(145deg,rgba(20,76,54,.92),rgba(4,25,19,.92));border-bottom:5px solid rgba(0,0,0,.35)}.casino-bet-zone,.roulette-slot,.bankdice-zone,.baccarat-sector{box-shadow:0 8px 0 rgba(0,0,0,.28),0 12px 22px rgba(0,0,0,.24);transform:translateY(0);transition:transform .12s,box-shadow .12s}.casino-bet-zone:hover,.roulette-slot:hover,.bankdice-zone:hover,.baccarat-sector:hover{transform:translateY(-3px);box-shadow:0 11px 0 rgba(0,0,0,.28),0 18px 26px rgba(0,0,0,.3)}.roulette-grid.compact{grid-template-columns:repeat(3,minmax(44px,1fr));max-width:240px;margin:0 auto}.roulette-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.wager-buttons{display:flex;gap:4px;justify-content:center;margin-top:5px}.wager-buttons button{border:0;border-radius:8px;padding:5px 8px;font-weight:950;cursor:pointer}.wager-minus{background:#ff595e;color:#fff}.wager-plus{background:#8ac926;color:#0d1b2a}.chat-room-full{min-height:52vh;display:flex;align-items:center;justify-content:center;text-align:center;flex-direction:column;gap:12px;background:linear-gradient(145deg,rgba(76,201,240,.14),rgba(138,201,38,.08));border-radius:24px;box-shadow:inset 0 0 45px rgba(76,201,240,.12)}.baccarat-felt{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.baccarat-sector{min-height:92px;border-radius:16px;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:950;background:rgba(42,157,143,.28);cursor:pointer}.baccarat-sector.tie{background:rgba(252,163,17,.25)}.bankdice-layout{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.bankdice-zone{min-height:70px;border-radius:12px;border:1px dashed rgba(255,255,255,.34);display:flex;align-items:center;justify-content:center;text-align:center;font-weight:950;background:rgba(255,255,255,.08);cursor:pointer}@media(max-width:820px){.casino-layout{grid-template-columns:1fr}.roulette-grid{grid-template-columns:repeat(6,1fr)}}@keyframes diePop{0%{transform:scale(.25) rotate(-12deg);opacity:.2}70%{transform:scale(1.22) rotate(4deg)}100%{transform:scale(1);opacity:1}}.bingo-live-card{display:grid;grid-template-columns:repeat(5,44px);gap:5px;justify-content:center;margin:10px auto}.bingo-head,.bingo-live-cell{height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:950}.bingo-head{background:#4cc9f0;color:#0d1b2a}.bingo-live-cell{background:#f8fbff;color:#111;border:2px solid rgba(76,201,240,.55);cursor:pointer;pointer-events:auto}.bingo-live-cell.marked{background:#8ac926;color:#0d1b2a}.table-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.table-actions .btn-action{pointer-events:auto}.chip-bank{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+
+@keyframes startupGlow{0%{background:#000}28%{background:#0b77c5}68%{background:#05070d}100%{background:#3f4651}}
+@keyframes shineSweep{0%{opacity:0;transform:translateX(-35%)}30%{opacity:1}100%{opacity:.18;transform:translateX(18%)}}
+@keyframes slideTabletop{to{transform:translateX(0)}}
+@keyframes slideOnline{to{transform:translateY(0);opacity:1}}
+@keyframes brandSettle{from{transform:scale(1.18)}to{transform:scale(1)}}
+@keyframes cardRise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── Game screen ────────────────────────────────────────── */
 #screen-game{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden}
@@ -61,7 +146,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   flex: 1;
   position: relative;
   /* This creates the 3D perspective */
-  perspective: 1200px; 
+  perspective: 1200px;
   background: radial-gradient(ellipse at 50% 30%, #1a4d2e, #0d2218);
   overflow: hidden;
 }
@@ -82,7 +167,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     justify-content: center;
     align-items: flex-start;
     gap: 6px; /* Tightened from 14px */
-    padding: 6px 10px; 
+    padding: 6px 10px;
     flex-wrap: wrap;
     z-index: 10;
 }
@@ -149,7 +234,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   top: 50%;
   left: 50%;
   /* Added rotateX to tilt the pile back */
-  transform: translate(-50%, -50%) rotateX(30deg); 
+  transform: translate(-50%, -50%) rotateX(30deg);
   display: flex;
   align-items: center;
   gap: 28px;
@@ -162,7 +247,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   border:3px solid rgba(255,255,255,0.3);display:flex;align-items:center;
   justify-content:center;font-size:1.4rem;font-weight:900;color:white;
   box-shadow:0 4px 16px rgba(0,0,0,0.6);position:relative}
-.card-back::after{content:'UNO';font-size:.5rem;letter-spacing:1px;
+.card-back::after{content:'8s';font-size:.5rem;letter-spacing:1px;
   position:absolute;bottom:6px;color:rgba(255,255,255,.6)}
 .deck-label{font-size:.7rem;color:#778da9}
 
@@ -194,7 +279,7 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 .btn-pass-turn:hover{background:#537aa0}
 .btn-pass-turn:disabled{opacity:.4;cursor:not-allowed}
 
-/* UNO Card component */
+/* Standard playing card component */
 .uno-card {
   width: 64px;
   height: 92px;
@@ -206,14 +291,14 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   align-items: center;
   justify-content: center;
   background: white; /* Base card color */
-  
+
   /* The "Chunky" 3D Edge logic */
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
-  box-shadow: 
-    -1px 1px 0px #ccc, 
-    -2px 2px 0px #bbb, 
+  box-shadow:
+    -1px 1px 0px #ccc,
+    -2px 2px 0px #bbb,
     -3px 10px 15px rgba(0,0,0,0.5);
-  
+
   font-weight: 900;
   flex-shrink: 0;
   transform-style: preserve-3d;
@@ -262,26 +347,28 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   align-items:center;justify-content:center}
 .wild-btn:hover{transform:scale(1.12);box-shadow:0 6px 20px rgba(0,0,0,.6)}
 
-/* Chat sidebar */
-#chat-panel{position:fixed;right:0;top:0;bottom:0;width:240px;
-  background:rgba(13,27,42,.95);border-left:1px solid rgba(255,255,255,.1);
-  display:flex;flex-direction:column;z-index:20;transform:translateX(100%);
-  transition:transform .25s}
-#chat-panel.open{transform:translateX(0)}
-#chat-toggle{position:fixed;right:10px;top:10px;z-index:30;width:38px;height:38px;
+/* Fullscreen chat hub */
+#chat-panel{position:fixed;inset:0;width:auto;
+  background:radial-gradient(circle at 50% 0%,rgba(30,58,95,.98),rgba(5,10,18,.98));
+  border:0;display:flex;flex-direction:column;z-index:45;opacity:0;pointer-events:none;
+  transform:scale(.96);transition:opacity .2s,transform .2s;padding:clamp(16px,4vw,42px)}
+#chat-panel.open{opacity:1;pointer-events:auto;transform:scale(1)}
+#chat-toggle{position:fixed;right:10px;top:10px;z-index:55;width:38px;height:38px;
   border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(13,27,42,.9);
   cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
-#chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:4px}
-.chat-msg{font-size:.78rem;line-height:1.4;word-break:break-word}
+.chat-panel-head{padding:0 52px 14px 0;border-bottom:1px solid rgba(255,255,255,.14);font-size:1.4rem;font-weight:950;color:#4cc9f0;display:flex;justify-content:flex-start;gap:12px;align-items:center;text-transform:uppercase;letter-spacing:.08em}
+#chat-messages{flex:1;overflow-y:auto;padding:18px 0;display:flex;flex-direction:column;gap:8px;max-width:980px;width:100%;margin:0 auto}
+.chat-msg{font-size:1rem;line-height:1.45;word-break:break-word;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px 12px;box-shadow:0 10px 24px rgba(0,0,0,.22)}
 .chat-msg .from{font-weight:700;color:#4cc9f0}
 .chat-msg.server-msg .from{color:#fca311}
-#chat-input-row{display:flex;gap:6px;padding:8px}
-#chat-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid #415a77;
-  background:#0d1b2a;color:#e0e1dd;font-size:.8rem;outline:none}
-#chat-send{padding:7px 12px;border-radius:8px;border:none;cursor:pointer;
+#chat-input-row{display:flex;gap:10px;padding:12px 0 0;max-width:980px;width:100%;margin:0 auto}
+#chat-input{flex:1;padding:14px 16px;border-radius:14px;border:1px solid #415a77;
+  background:#0d1b2a;color:#e0e1dd;font-size:1rem;outline:none}
+#chat-send{padding:12px 20px;border-radius:14px;border:none;cursor:pointer;
   background:#4cc9f0;color:#0d1b2a;font-weight:700;font-size:.8rem}
 
 /* Game-over overlay */
+.global-menu-btn{position:absolute;left:10px;top:58px;z-index:45;width:auto;padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:#1982c4;color:#fff;font-weight:900;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.3)}
 #screen-over{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;
   align-items:center;justify-content:center;z-index:40;flex-direction:column;gap:16px}
 .over-box{background:#1b2d42;border:2px solid #415a77;border-radius:20px;
@@ -302,7 +389,6 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   .uno-card{width:52px;height:76px}
   .card-inner{width:36px;height:54px}
   #top-card{width:68px;height:96px}
-  #chat-panel{width:200px}
 }
 #chat-dot {
     position: absolute;
@@ -310,12 +396,12 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     right: -2px;
     width: 10px;
     height: 10px;
-    background-color: #ff595e; /* Red color */
+    background-color: #ff595e;
     border: 1px solid white;
     border-radius: 50%;
-    display: none; /* Starts hidden */
+    display: none;
     z-index: 100;
-  /* Add this below your #chat-dot styles */
+}
 #chat-dot.active {
   display: block;
   animation: pulse-red 1.5s infinite;
@@ -326,22 +412,40 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 89, 94, 0); }
   100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 89, 94, 0); }
 }
-}
 </style>
 </head>
 <body>
 
+<!-- ── LAUNCH SCREEN ───────────────────────────────────── -->
+<div id="screen-launch" role="dialog" aria-label="Launch Tabletop Online">
+  <div class="launch-panel">
+    <div class="launch-title">Tabletop Online</div>
+    <div class="launch-subtitle">Gather the table. Deal the cards. Start the night.</div>
+    <button class="launch-btn" type="button" onclick="launchTabletopOnline()">Launch Tabletop Online!</button>
+  </div>
+</div>
+
 <!-- ── JOIN SCREEN ──────────────────────────────────────── -->
 <div id="screen-join">
   <div class="join-box">
-    <h1>U<span>N</span>O</h1>
-    <p>Multiplayer — up to 10 players</p>
-    <input id="inp-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
-    <input id="inp-room" type="text" placeholder="Room code (e.g. PIZZA)" maxlength="12"
-      autocomplete="off" style="text-transform:uppercase">
-    <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
-    <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room (random code)</button>
-    <div class="join-err" id="join-err"></div>
+    <div class="brand-lockup" aria-label="Tabletop Online">
+      <div class="brand-tabletop">Tabletop</div>
+      <div class="brand-online">Online</div>
+    </div>
+    <p>Enter your name and room code. The host picks the game after everyone joins.</p>
+    <div class="join-form">
+      <input id="inp-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
+      <input id="inp-room" type="text" placeholder="Room code (e.g. PIZZA)" maxlength="12"
+        autocomplete="off" style="text-transform:uppercase">
+      <button class="btn-primary" onclick="joinRoom()">Join / Create Room</button>
+      <button class="btn-secondary" onclick="quickRoom()">⚡ Quick Room (random code)</button>
+      <button class="btn-secondary" id="btn-game-info" onclick="openInfoForGame('all')">ℹ️ How to Play</button>
+      <div class="audio-unlock" id="audio-unlock" role="status" aria-live="polite">
+        Your browser is waiting for permission before playing the startup sound.
+        <button type="button" onclick="unlockAudioAndPlayStartup()">🔊 Enable Startup Sound</button>
+      </div>
+      <div class="join-err" id="join-err"></div>
+    </div>
   </div>
 </div>
 
@@ -350,6 +454,20 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
   <div class="lobby-box">
     <h2>Room <span style="color:#4cc9f0" id="lby-code"></span></h2>
     <div style="color:#778da9;font-size:.85rem;margin-bottom:6px">Share this code with friends!</div>
+    <div style="color:#fca311;font-size:.9rem;margin-bottom:6px">Game: <strong id="lby-game">Crazy Eights</strong></div>
+    <div id="game-select-panel" style="margin:10px 0 12px">
+      <select id="lby-game-select" class="select-input" aria-label="Host choose game" onchange="setLobbyGameType()">
+        <option value="chat_room">Chat Room</option>
+        <option value="crazy_eights">Crazy Eights</option>
+        <option value="bingo">Bingo</option>
+        <option value="blackjack_chips">Blackjack + Chips</option>
+        <option value="texas_holdem">Texas Hold'em</option>
+        <option value="left_center_right">Left Center Right</option>
+        <option value="roulette">Roulette</option>
+        <option value="bank_dice">Bank Dice</option>
+        <option value="baccarat">Baccarat</option>
+      </select>
+    </div>
     <div class="room-code" id="lby-code-big"></div>
     <ul class="lobby-players" id="lby-players"></ul>
     <!-- CPU Selection -->
@@ -363,6 +481,17 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </div>
 
     <button class="btn-start" id="btn-start" onclick="sendStart()" disabled>Start Game</button>
+    <div class="info-button-row">
+      <button class="btn-secondary" onclick="openInfoForGame(selectedGame)">ℹ️ This Game</button>
+      <button class="btn-secondary" onclick="openInfoForGame('all')">📚 All Games</button>
+    </div>
+    <div class="lobby-options" id="host-options">
+      <label><input type="checkbox" id="opt-chat-filter" onchange="sendRoomOptions()"> Enable chat filter</label>
+      <label><input type="checkbox" id="opt-gambling" onchange="sendRoomOptions()"> Enable casino and betting games</label>
+      <div style="font-size:.75rem;color:#8ac926;margin:-4px 0 4px">Family mode is on by default: casino and betting games stay hidden until the host enables them.</div>
+      <label><input type="checkbox" id="opt-game-music" onchange="sendRoomOptions()"> Enable gameplay music for everyone</label>
+      <label>Bingo mode <select id="opt-bingo-mode" class="select-input" onchange="sendRoomOptions()"><option value="hard">Hard cage (no repeats)</option><option value="easy">Easy picker (repeats allowed)</option></select></label>
+    </div>
     <div class="waiting-hint" id="lby-hint">Waiting for the host to start…</div>
   </div>
 </div>
@@ -371,6 +500,11 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 <div id="screen-game" style="display:none">
   <!-- Table -->
   <div id="table">
+    <div id="audio-controls" style="position:absolute;left:10px;top:10px;z-index:40;display:flex;gap:8px">
+      <button class="btn-secondary" id="btn-mute-music" onclick="toggleMusicMute()">Music: On</button>
+      <button class="btn-secondary" id="btn-mute-sfx" onclick="toggleSfxMute()">SFX: On</button>
+    </div>
+    <button id="global-back-menu" class="global-menu-btn" onclick="sendRestart()">← Back to Menu</button>
     <!-- Opponents ring -->
     <div id="opponents"></div>
 
@@ -394,6 +528,8 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
       <div id="turn-label">Waiting…</div>
       <div id="active-color-badge">—</div>
     </div>
+
+    <div id="game-showcase"></div>
   </div>
 
   <!-- Player hand at bottom -->
@@ -419,12 +555,12 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 <!-- ── WILD CHOOSER ─────────────────────────────────────── -->
 <div id="wild-chooser">
   <div class="wild-box">
-    <h3>Choose a color</h3>
+    <h3>8 is wild — choose a suit</h3>
     <div class="wild-colors">
-      <div class="wild-btn" style="background:#ff595e" onclick="chooseWild('Red')"></div>
-      <div class="wild-btn" style="background:#8ac926" onclick="chooseWild('Green')"></div>
-      <div class="wild-btn" style="background:#1982c4" onclick="chooseWild('Blue')"></div>
-      <div class="wild-btn" style="background:#ffca3a;color:#333" onclick="chooseWild('Yellow')"></div>
+      <div class="wild-btn" style="background:#f8fbff;color:#111" onclick="chooseWild('Spades')">♠</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#d62839" onclick="chooseWild('Hearts')">♥</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#d62839" onclick="chooseWild('Diamonds')">♦</div>
+      <div class="wild-btn" style="background:#f8fbff;color:#111" onclick="chooseWild('Clubs')">♣</div>
     </div>
   </div>
 </div>
@@ -437,16 +573,30 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
 </button>
 
 <!-- THE PANEL -->
-<div id="chat-panel"> 
-    <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1); font-size:.8rem;font-weight:700;color:#4cc9f0">Room Chat</div> 
-    <div id="chat-messages"></div> 
-    <div id="chat-input-row"> 
-        <input id="chat-input" placeholder="Message…" maxlength="200" onkeydown="if(event.key==='Enter')sendChat()"> 
-        <button id="chat-send" onclick="sendChat()">➤</button> 
-    </div> 
+<div id="chat-panel">
+    <div class="chat-panel-head"><button id="chat-clear-host" class="btn-secondary" style="width:auto;padding:4px 8px;font-size:.75rem;display:none" onclick="clearChat()">Clear</button><span>Chat Hub</span></div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-row">
+        <input id="chat-input" placeholder="Message…" maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">➤</button>
+    </div>
+</div>
+
+<!-- ── GAME INFO MODAL ───────────────────────────────────── -->
+<div id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-title">
+  <div class="info-box">
+    <div class="info-head">
+      <h2 id="info-title">How to Play</h2>
+      <button class="btn-secondary info-close" onclick="closeInfo()">Close ✕</button>
+    </div>
+    <div class="info-tabs" id="info-tabs"></div>
+    <div id="info-content"></div>
+  </div>
 </div>
 
 <!-- ── TOAST ─────────────────────────────────────────────── -->
+<audio id="startup-sound" src="/startup-sound.mp3" preload="auto"></audio>
+<audio id="bgm" preload="auto"></audio>
 <div id="toast"></div>
 
 <script>
@@ -462,6 +612,111 @@ let myIdx  = -1;
 let isHost = false;
 let gameState = null;
 let pendingPlayIdx = null; // card index waiting for wild color choice
+let roomChatFilterEnabled = false;
+let roomGamblingEnabled = false;
+let selectedGame = 'crazy_eights';
+let roomGameplayMusicEnabled = false;
+let roomBingoMode = 'hard';
+let musicMuted = false;
+let sfxMuted = false;
+let startupSoundPlayed = false;
+let startupSoundBlocked = false;
+const GAMBLING_GAME_TYPES = new Set(['blackjack_chips', 'texas_holdem', 'roulette', 'bank_dice', 'baccarat']);
+const MUSIC_TRACKS = ['/card-table-swing.mp3','/in-the-lobby.mp3','/pass-the-chips.mp3','/game-in-progress.mp3','/dealing-the-cards.mp3'];
+let lastTrackIdx = -1;
+let lastDiceSignature = '';
+let lastPhaseSignature = '';
+let lastSoundSeq = 0;
+
+const GAME_GUIDES = {
+  chat_room: {
+    name: 'Chat Room',
+    html: `<h3>Chat Room</h3><ul><li>Start this when the group only wants the chat hub open.</li><li>The host can use Back to Menu to choose a table game later.</li><li>The host can always clear chat from the chat hub.</li></ul>`
+  },
+  crazy_eights: {
+    name: 'Crazy Eights',
+    html: `<h3>Crazy Eights</h3>
+      <ul>
+        <li>Match the top card by suit or rank.</li>
+        <li>All 8s are wild and let you choose the next active suit.</li>
+        <li>Draw if you cannot play. After drawing, play the drawn card if it fits or pass.</li>
+        <li>First player to empty their hand wins.</li>
+      </ul>`
+  },
+  bingo: {
+    name: 'Bingo',
+    html: `<h3>Bingo</h3>
+      <div class="bingo-guide-card" aria-label="Sample Bingo card">
+        <div class="bingo-cell">B7</div><div class="bingo-cell">I18</div><div class="bingo-cell">N33</div><div class="bingo-cell">G52</div><div class="bingo-cell">O70</div>
+        <div class="bingo-cell">B2</div><div class="bingo-cell">I24</div><div class="bingo-cell">N41</div><div class="bingo-cell">G48</div><div class="bingo-cell">O63</div>
+        <div class="bingo-cell">B11</div><div class="bingo-cell">I29</div><div class="bingo-cell free">FREE</div><div class="bingo-cell">G59</div><div class="bingo-cell">O72</div>
+        <div class="bingo-cell">B5</div><div class="bingo-cell">I16</div><div class="bingo-cell">N38</div><div class="bingo-cell">G55</div><div class="bingo-cell">O68</div>
+        <div class="bingo-cell">B14</div><div class="bingo-cell">I22</div><div class="bingo-cell">N44</div><div class="bingo-cell">G60</div><div class="bingo-cell">O75</div>
+      </div>
+      <div class="mark-callout">🎱 MARK YOUR CARDS!</div>
+      <ul>
+        <li>Every player gets their own 5×5 Bingo card.</li>
+        <li>The center square is FREE.</li>
+        <li>When the machine calls a number, the table shouts: <strong>MARK YOUR CARDS!</strong></li>
+        <li>Players must mark their own cards. If you forget, oof — that is part of the game.</li>
+        <li>The game automatically checks for five in a row after marks are made.</li>
+      </ul>
+      <p>No UNO-style card hand for Bingo. The table should show Bingo boards and called numbers only.</p>`
+  },
+  blackjack_chips: {
+    name: 'Blackjack + Chips',
+    html: `<h3>Blackjack + Chips</h3>
+      <div class="chip-guide" aria-label="Chip stack guide">
+        <div class="chip red">25</div><div class="chip blue">100</div><div class="chip green">500</div>
+      </div>
+      <ul>
+        <li>Players sit at a dealer table with chips in front of them.</li>
+        <li>Bet chips before each hand, then choose Hit or Stand.</li>
+        <li>Try to get closer to 21 than the dealer without going over.</li>
+        <li>Blackjack pays bonus chips when enabled by room rules.</li>
+      </ul>`
+  },
+  texas_holdem: {
+    name: "Texas Hold'em",
+    html: `<h3>Texas Hold'em</h3>
+      <ul>
+        <li>Each player gets two private cards. The dealer button rotates each hand.</li>
+        <li>Small blind posts 10 chips and big blind posts 20 chips automatically before cards are dealt.</li>
+        <li>Betting rounds happen pre-flop, after the flop, after the turn, and after the river.</li>
+        <li>On your turn choose Check, Bet, Call, Raise, or Fold. If more than one player remains after the river, everyone shows down.</li>
+        <li>Use any five cards from your two cards plus the community cards. Highest hand wins the pot.</li>
+      </ul>
+      <h3>Poker hand guide</h3>
+      <div class="poker-hands">
+        <div class="poker-hand"><strong>Royal Flush</strong><br>10-J-Q-K-A, same suit</div>
+        <div class="poker-hand"><strong>Straight Flush</strong><br>Five in sequence, same suit</div>
+        <div class="poker-hand"><strong>Four of a Kind</strong><br>Four cards same rank</div>
+        <div class="poker-hand"><strong>Full House</strong><br>Three of a kind + pair</div>
+        <div class="poker-hand"><strong>Flush</strong><br>Five same suit</div>
+        <div class="poker-hand"><strong>Straight</strong><br>Five in sequence</div>
+        <div class="poker-hand"><strong>Three of a Kind</strong><br>Three same rank</div>
+        <div class="poker-hand"><strong>Two Pair</strong><br>Two different pairs</div>
+        <div class="poker-hand"><strong>Pair</strong><br>Two same rank</div>
+        <div class="poker-hand"><strong>High Card</strong><br>Best single card</div>
+      </div>`
+  },
+  left_center_right: {
+    name: 'Left Center Right',
+    html: `<h3>Left Center Right</h3><ul><li>Roll dice to pass chips left, right, or center.</li><li>Dots mean you keep chips.</li><li>Last player with chips wins.</li></ul>`
+  },
+  roulette: {
+    name: 'Roulette',
+    html: `<h3>Roulette</h3><ul><li>Toggle American or European mode before spinning.</li><li>American mode includes 0, 00, and the five-number basket bet paying 6:1.</li><li>European mode hides 00 and disables basket bets.</li><li>Straights pay 35:1; all bets use play-money chips only.</li></ul>`
+  },
+  bank_dice: {
+    name: 'Bank Dice',
+    html: `<h3>Bank Dice</h3><ul><li>Family-friendly craps-style dice with Pass, Don't Pass, Come, Don't Come, and Field bets.</li><li>Field pays 1:1 on 3, 4, 9, 10, 11 and 2:1 on 2 or 12.</li><li>Two dice bounce across the digital table before settling.</li></ul>`
+  },
+  baccarat: {
+    name: 'Baccarat',
+    html: `<h3>Baccarat</h3><ul><li>Punto Banco: bet Player, Banker, or Tie.</li><li>Third-card drawing is automatic, so players only choose where to bet.</li><li>Player pays 1:1, Banker pays 1:1 minus 5% commission, Tie pays 8:1.</li></ul>`
+  }
+};
 
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -488,6 +743,7 @@ function handle(msg) {
     case 'state':  onState(msg); break;
     case 'chat':   onChat(msg); break;
     case 'gameover': onGameOver(msg); break;
+    case 'chat_cleared': onChatCleared(msg); break;
   }
 }
 
@@ -516,49 +772,608 @@ function onJoined(msg) {
   myIdx  = msg.yourIdx;
   isHost = msg.isHost;
   myRoom = msg.code;
+  selectedGame = msg.gameType || selectedGame;
+  roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  roomBingoMode = msg.bingoMode || roomBingoMode;
   showScreen('lobby');
   document.getElementById('lby-code').textContent = msg.code;
   document.getElementById('lby-code-big').textContent = msg.code;
+  document.getElementById('lby-game').textContent = prettyGameName(msg.gameType || selectedGame);
+}
+
+
+function isGamblingGame(gameType) {
+  return GAMBLING_GAME_TYPES.has(gameType);
+}
+
+function syncGamblingGameOptions() {
+  const gameSelect = document.getElementById('lby-game-select');
+  if (!gameSelect) return;
+  [...gameSelect.options].forEach(option => {
+    const gambling = isGamblingGame(option.value);
+    option.hidden = gambling && !roomGamblingEnabled;
+    option.disabled = gambling && !roomGamblingEnabled;
+  });
+  if (!roomGamblingEnabled && isGamblingGame(gameSelect.value)) gameSelect.value = 'crazy_eights';
 }
 
 // ── Lobby ───────────────────────────────────────────────
 function onLobby(msg) {
-  if (gameState && gameState.state === 'playing') return; // don't clobber active game
+  gameState = null;
+  lastDiceSignature = '';
+  lastPhaseSignature = '';
+  lastSoundSeq = 0;
+  syncGameplayMusic('lobby');
+  document.getElementById('screen-over').style.display = 'none';
+  document.getElementById('game-showcase').style.display = 'none';
+  document.getElementById('hand-cards').innerHTML = '';
   showScreen('lobby');
   document.getElementById('lby-code').textContent = myRoom;
   document.getElementById('lby-code-big').textContent = myRoom;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
+  selectedGame = msg.gameType || selectedGame;
+  if (!roomGamblingEnabled && isGamblingGame(selectedGame)) selectedGame = 'crazy_eights';
+  document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
 
   const ul = document.getElementById('lby-players');
   ul.innerHTML = '';
-  msg.players.forEach((name, i) => {
+  const players = msg.players || [];
+  players.forEach((name, i) => {
     const li = document.createElement('li');
     li.textContent = name;
     if (name === msg.hostName) li.classList.add('host');
     ul.appendChild(li);
   });
 
-  const canStart = isHost && msg.players.length >= 2;
+  roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  roomBingoMode = msg.bingoMode || roomBingoMode;
+  const hostOptions = document.getElementById('host-options');
+  if (hostOptions && !isHost) hostOptions.remove();
+  const gameSelectPanel = document.getElementById('game-select-panel');
+  if (gameSelectPanel && !isHost) gameSelectPanel.remove();
+  const gameSelect = document.getElementById('lby-game-select');
+  syncGamblingGameOptions();
+  if (gameSelect) gameSelect.value = selectedGame;
+  const chatFilter = document.getElementById('opt-chat-filter');
+  if (chatFilter) chatFilter.checked = roomChatFilterEnabled;
+  const gamblingOpt = document.getElementById('opt-gambling');
+  if (gamblingOpt) gamblingOpt.checked = roomGamblingEnabled;
+  const musicOpt = document.getElementById('opt-game-music');
+  if (musicOpt) musicOpt.checked = roomGameplayMusicEnabled;
+  const bingoModeOpt = document.getElementById('opt-bingo-mode');
+  if (bingoModeOpt) bingoModeOpt.value = roomBingoMode;
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = isHost ? 'inline-block' : 'none';
+  const globalBack = document.getElementById('global-back-menu');
+  if (globalBack) globalBack.style.display = isHost ? 'block' : 'none';
+
+  const cpuControls = document.getElementById('cpu-controls');
+  if (cpuControls && !isHost) cpuControls.remove();
+  cpuCount = players.filter(name => /🤖$/.test(name)).length;
+  const cpuCountEl = document.getElementById('cpu-count');
+  if (cpuCountEl) cpuCountEl.textContent = cpuCount;
+
+  const canStart = isHost && (players.length >= 2 || selectedGame === 'chat_room');
   document.getElementById('btn-start').disabled = !canStart;
+  document.getElementById('btn-start').textContent = selectedGame === 'chat_room' ? 'Open Chat Room' : 'Start Game';
   document.getElementById('lby-hint').textContent = isHost
-    ? (msg.players.length < 2 ? 'Waiting for at least 2 players…' : 'Ready! Press Start.')
+    ? (players.length < 2 && selectedGame !== 'chat_room' ? 'Waiting for at least 2 players…' : 'Ready! Press Start.')
     : 'Waiting for the host to start…';
+}
+
+function setLobbyGameType() {
+  if (!isHost) return;
+  const sel = document.getElementById('lby-game-select');
+  if (!sel) return;
+  selectedGame = (!roomGamblingEnabled && isGamblingGame(sel.value)) ? 'crazy_eights' : sel.value;
+  if (sel.value !== selectedGame) sel.value = selectedGame;
+  document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
+  send({ type:'set_game_type', gameType: selectedGame });
+}
+
+function syncInfoButtonLabel() {}
+function openInfoForSelectedGame() { openInfoForGame(selectedGame); }
+
+function openInfoForGame(gameKey) {
+  const modal = document.getElementById('info-modal');
+  const tabs = document.getElementById('info-tabs');
+  const content = document.getElementById('info-content');
+  if (!modal || !tabs || !content) return;
+  const keys = Object.keys(GAME_GUIDES).filter(key => roomGamblingEnabled || !isGamblingGame(key));
+  const activeKey = GAME_GUIDES[gameKey] && keys.includes(gameKey) ? gameKey : (gameKey === 'all' ? 'all' : 'crazy_eights');
+  tabs.innerHTML = '';
+
+  const addTab = (key, label) => {
+    const btn = document.createElement('button');
+    btn.className = 'info-tab' + (key === activeKey ? ' active' : '');
+    btn.textContent = label;
+    btn.onclick = () => openInfoForGame(key);
+    tabs.appendChild(btn);
+  };
+
+  addTab('all', 'All Games');
+  keys.forEach(key => addTab(key, GAME_GUIDES[key].name));
+
+  if (activeKey === 'all') {
+    content.innerHTML = keys.map(key => GAME_GUIDES[key].html).join('<hr style="border-color:rgba(255,255,255,.12);margin:14px 0">');
+    document.getElementById('info-title').textContent = 'How to Play — All Games';
+  } else {
+    content.innerHTML = GAME_GUIDES[activeKey].html;
+    document.getElementById('info-title').textContent = `How to Play — ${GAME_GUIDES[activeKey].name}`;
+  }
+  modal.classList.add('open');
+}
+
+function closeInfo() {
+  const modal = document.getElementById('info-modal');
+  if (modal) modal.classList.remove('open');
 }
 
 function sendStart() { send({ type:'start' }); }
 
+function prettyGameName(gameType) {
+  const names = {
+    crazy_eights: 'Crazy Eights',
+    blackjack_chips: 'Blackjack (Chips)',
+    bingo: 'Bingo',
+    texas_holdem: "Texas Hold'em",
+    left_center_right: 'Left Center Right',
+    roulette: 'Roulette',
+    bank_dice: 'Bank Dice',
+    baccarat: 'Baccarat',
+    chat_room: 'Chat Room'
+  };
+  return names[gameType] || 'Crazy Eights';
+}
+
+function sendRoomOptions() {
+  if (!isHost) return;
+  const chatFilterEnabled = !!document.getElementById('opt-chat-filter')?.checked;
+  const gamblingEnabled = !!document.getElementById('opt-gambling')?.checked;
+  const gameplayMusicEnabled = !!document.getElementById('opt-game-music')?.checked;
+  const bingoMode = document.getElementById('opt-bingo-mode')?.value || roomBingoMode;
+  send({ type:'set_room_options', chatFilterEnabled, gamblingEnabled, gameplayMusicEnabled, bingoMode });
+}
+
+function clearChat() {
+  if (!isHost) return;
+  send({ type:'clear_chat' });
+}
+
 // ── Game State ──────────────────────────────────────────
-const COL_HEX = { Red:'#ff595e', Green:'#8ac926', Blue:'#1982c4', Yellow:'#ffca3a', Wild:'#333' };
-const COL_DARK = { Red:'#c0272e', Green:'#6a9a1e', Blue:'#1162a0', Yellow:'#c09a28', Wild:'#222' };
+const SUIT_SYMBOL = { Spades:'♠', Hearts:'♥', Diamonds:'♦', Clubs:'♣' };
+const SUIT_COLOR = { Spades:'#111', Hearts:'#d62839', Diamonds:'#d62839', Clubs:'#111' };
 
 function onState(msg) {
+  const diceSignature = (msg.dice || []).join('|');
+  if (diceSignature && diceSignature !== lastDiceSignature) playSound((msg.dice || []).includes('-') ? 'roll' : 'ding');
+  lastDiceSignature = diceSignature;
+  const phaseSignature = `${msg.gameType}:${msg.phase}:${msg.pot}:${msg.message}`;
+  if (msg.soundEvent && msg.soundEvent.seq !== lastSoundSeq) {
+    lastSoundSeq = msg.soundEvent.seq;
+    playSound(msg.soundEvent.sound || 'click');
+  } else if (lastPhaseSignature && phaseSignature !== lastPhaseSignature && ['blackjack_chips','texas_holdem','roulette','bank_dice','baccarat'].includes(msg.gameType)) playSound(msg.phase === 'showdown' || msg.phase === 'settled' ? 'win' : 'card');
+  lastPhaseSignature = phaseSignature;
   gameState = msg;
   if (msg.state === 'over') return;
   showScreen('game');
+  roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  const hostChatClearBtn = document.getElementById('chat-clear-host');
+  if (hostChatClearBtn) hostChatClearBtn.style.display = isHost ? 'inline-block' : 'none';
+  const globalBack = document.getElementById('global-back-menu');
+  if (globalBack) globalBack.style.display = isHost ? 'block' : 'none';
+
+  if ((msg.gameType || 'crazy_eights') !== 'crazy_eights') {
+    renderShowcaseState(msg);
+    syncGameplayMusic(msg.state);
+    return;
+  }
+
+  document.getElementById('center').style.display = 'flex';
+  document.getElementById('game-showcase').style.display = 'none';
+  document.getElementById('hand-area').style.display = 'flex';
+  document.getElementById('hand-label').textContent = 'YOUR HAND';
+  document.getElementById('btn-draw').style.display = '';
+  document.getElementById('btn-pass').style.display = '';
   renderOpponents(msg);
-  renderTopCard(msg.topCard, msg.activeColor);
-  renderHand(msg.hand, msg.activeColor, msg.activeVal, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
+  renderTopCard(msg.topCard, msg.activeSuit);
+  renderHand(msg.hand, msg.activeSuit, msg.activeRank, msg.yourIdx === msg.turnIdx, msg.hasDrawn);
   renderStatus(msg);
   document.getElementById('deck-count').textContent = msg.deckCount;
+  syncGameplayMusic(msg.state);
+}
+
+function cardFace(card) {
+  if (!card || card.hidden) return '🂠';
+  return `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+}
+
+function cardClass(card) {
+  if (!card || card.hidden) return 'mini-playing-card hidden';
+  return 'mini-playing-card' + ((card.suit === 'Hearts' || card.suit === 'Diamonds') ? ' red' : '');
+}
+
+function chipHtml(amount, kind = 'casino') {
+  if (kind === 'lcr') return '<span class="table-chip lcr">LCR</span>'.repeat(Math.max(0, amount || 0));
+  const denominations = [500, 100, 50, 20, 10, 5, 1];
+  let remaining = Math.max(0, Number(amount || 0));
+  let html = '';
+  denominations.forEach(denom => {
+    let count = Math.floor(remaining / denom);
+    if (count > 4) count = 4;
+    remaining -= count * denom;
+    for (let i = 0; i < count; i++) {
+      const color = denom >= 500 ? 'green' : denom >= 100 ? 'blue' : 'red';
+      html += `<span class="table-chip ${color}">${denom}</span>`;
+    }
+  });
+  return html || '<span class="table-chip red">0</span>';
+}
+
+function renderBetControls(msg, me) {
+  if (msg.gameType !== 'blackjack_chips' || msg.phase !== 'betting') return '';
+  const denominations = msg.chipDenominations || [1,5,10,20,50,100,500];
+  const doneDisabled = !me?.bet || me?.doneBetting ? 'disabled' : '';
+  return `<div class="table-actions">
+    <span style="align-self:center;color:#c7d7e8;font-weight:800">Build your blackjack bet:</span>
+    ${denominations.map(v => `<button class="btn-action btn-draw-card" ${me?.doneBetting ? 'disabled' : ''} onclick="tableBet(${v}); playSound('bet')">+${v}</button><button class="btn-action btn-pass-turn" ${me?.doneBetting || !me?.bet ? 'disabled' : ''} onclick="tableBetSubtract(${v}); playSound('click')">−${v}</button>`).join('')}
+    <button class="btn-action btn-pass-turn" ${doneDisabled} onclick="send({type:'done_betting'}); playSound('ready')">Done Betting</button>
+  </div><div class="chip-bank">Balance: ${chipHtml(me?.chips || 0)} ${me?.bet ? ` <strong style="margin-left:10px;color:#ffca3a">Bet ${me.bet}</strong>` : ''}</div>`;
+}
+
+function renderBlackjackControls(msg, me) {
+  if (msg.gameType !== 'blackjack_chips') return '';
+  if (msg.phase === 'insurance' && me?.insuranceOffered) {
+    return `<div class="table-actions"><button class="btn-action btn-draw-card" onclick="send({type:'bj_insurance',take:true}); playSound('bet')">Take Insurance (${Math.floor((me.bet || 0) / 2)})</button><button class="btn-action btn-pass-turn" onclick="send({type:'bj_insurance',take:false}); playSound('click')">No Insurance</button></div>`;
+  }
+  if (msg.phase === 'settled') {
+    return `<div class="table-actions"><button class="btn-action btn-draw-card" ${isHost ? '' : 'disabled'} onclick="send({type:'table_play_again'}); playSound('ready')">Play Again</button><button class="btn-action btn-pass-turn" ${isHost ? '' : 'disabled'} onclick="sendRestart()">Back to Menu</button></div>`;
+  }
+  if (msg.phase !== 'player_turn' || !me?.isYou || msg.turnIdx !== msg.yourIdx) return '';
+  return `<div class="table-actions"><button class="btn-action btn-draw-card" onclick="send({type:'bj_hit'}); playSound('card')">Hit</button><button class="btn-action btn-pass-turn" onclick="send({type:'bj_stand'}); playSound('ready')">Stand</button></div>`;
+}
+
+function renderHoldemControls(msg, me) {
+  if (msg.gameType !== 'texas_holdem') return '';
+  if (msg.phase === 'showdown') {
+    return `<div class="table-actions"><button class="btn-action btn-draw-card" ${isHost ? '' : 'disabled'} onclick="send({type:'table_play_again'}); playSound('ready')">Next Hand</button><button class="btn-action btn-pass-turn" ${isHost ? '' : 'disabled'} onclick="sendRestart()">Back to Menu</button></div>`;
+  }
+  if (!['preflop','flop','turn','river'].includes(msg.phase) || !me?.isYou || msg.turnIdx !== msg.yourIdx) return '';
+  const toCall = Math.max(0, (msg.currentBet || 0) - (me.roundBet || 0));
+  const minBet = msg.minRaise || 20;
+  activePokerBet = Math.max(minBet, activePokerBet || minBet);
+  return `<div class="table-actions">
+    <span style="align-self:center;color:#c7d7e8;font-weight:800">Poker action: ${toCall ? `Call ${toCall}` : 'Check available'} • Bet/Raise ${activePokerBet}</span>
+    <button class="btn-action btn-pass-turn" onclick="adjustPokerBet(-${minBet})">−${minBet}</button>
+    <button class="btn-action btn-draw-card" onclick="adjustPokerBet(${minBet})">+${minBet}</button>
+    <button class="btn-action btn-draw-card" ${toCall ? 'disabled' : ''} onclick="holdemAction('check')">Check</button>
+    <button class="btn-action btn-draw-card" ${toCall ? 'disabled' : ''} onclick="holdemAction('bet', activePokerBet)">Bet</button>
+    <button class="btn-action btn-draw-card" ${toCall ? '' : 'disabled'} onclick="holdemAction('call')">Call</button>
+    <button class="btn-action btn-draw-card" onclick="holdemAction('raise', activePokerBet)">Raise</button>
+    <button class="btn-action btn-pass-turn" onclick="holdemAction('fold')">Fold</button>
+  </div>`;
+}
+
+function adjustPokerBet(delta) { activePokerBet = Math.max(20, activePokerBet + delta); renderShowcaseState(gameState); playSound('click'); }
+function holdemAction(action, amount = 0) { send({ type:'holdem_action', action, amount }); playSound(action === 'fold' ? 'fold' : 'bet'); }
+
+function renderLcrControls(msg) {
+  if (msg.gameType !== 'left_center_right') return '';
+  const yourTurn = msg.turnIdx === msg.yourIdx && !msg.diceRolling;
+  return `<div class="table-actions"><button class="btn-action btn-draw-card" ${yourTurn ? '' : 'disabled'} onclick="send({type:'lcr_roll'}); playSound('roll')">Roll LCR Dice</button>${isHost ? `<button class="btn-action btn-pass-turn" onclick="sendRestart()">Back to Menu</button>` : ''}</div>`;
+}
+
+function renderSingleBingoCard(card, markedValues, ownerName = '', clickable = false) {
+  if (!card) return '';
+  const marked = new Set(markedValues || []);
+  const heads = ['B','I','N','G','O'].map(h => `<div class="bingo-head">${h}</div>`).join('');
+  const cells = [];
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const value = card[r][c];
+      const isMarked = value === 'FREE' || marked.has(value);
+      const click = clickable && value !== 'FREE' ? ` onclick="bingoMark('${value}')"` : '';
+      cells.push(`<div class="bingo-live-cell ${isMarked ? 'marked' : ''}"${click}>${value}</div>`);
+    }
+  }
+  return `${ownerName ? `<div class="bingo-player-name">${escHtml(ownerName)}</div>` : ''}<div class="bingo-live-card">${heads}${cells.join('')}</div>`;
+}
+
+function renderBingoCard(msg) {
+  if (msg.gameType !== 'bingo') return '';
+  const players = msg.players || [];
+  const allCards = msg.bingoCards || [];
+  const allMarked = msg.allMarked || [];
+  const meMarked = new Set(msg.marked || []);
+  const called = Number(msg.calledNumber);
+  const calledOnYourCard = Number.isFinite(called) && (msg.bingoCard || []).some(row => row.includes(called));
+  const needsMark = calledOnYourCard && !(meMarked.has(called) || meMarked.has(String(called)));
+  const callout = needsMark ? '<div class="mark-callout live">MARK YOUR CARDS!</div>' : '';
+  const cards = allCards.length
+    ? `<div class="bingo-all-cards">${allCards.map((card, idx) => `<div class="bingo-player-card ${idx === msg.yourIdx ? 'you' : ''}">${renderSingleBingoCard(card, allMarked[idx] || [], players[idx]?.name || `Player ${idx + 1}`, idx === msg.yourIdx)}</div>`).join('')}</div>`
+    : renderSingleBingoCard(msg.bingoCard, msg.marked || [], '', true);
+  const controls = isHost ? `<div class="table-actions"><button class="btn-action btn-draw-card" ${msg.bingoDrawing ? 'disabled' : ''} onclick="send({type:'bingo_draw_next'}); playSound('ding')">Draw Number (${(msg.bingoMode || 'hard').toUpperCase()})</button></div>` : '';
+  return `${callout}${cards}${controls}`;
+}
+
+
+const AMERICAN_ROULETTE_WHEEL = ["0", "28", "9", "26", "30", "11", "7", "20", "32", "17", "5", "22", "34", "15", "3", "24", "36", "13", "1", "00", "27", "10", "25", "29", "12", "8", "19", "31", "18", "6", "21", "33", "16", "4", "23", "35", "14", "2"];
+const EUROPEAN_ROULETTE_WHEEL = ["0", "32", "15", "19", "4", "21", "2", "25", "17", "34", "6", "27", "13", "36", "11", "30", "8", "23", "10", "5", "24", "16", "33", "1", "20", "14", "31", "9", "22", "18", "29", "7", "28", "12", "35", "3", "26"];
+const ROULETTE_REDS = new Set(['1','3','5','7','9','12','14','16','18','19','21','23','25','27','30','32','34','36']);
+let userChipBalance = 0;
+let activeCasinoChip = 10;
+let activePokerBet = 20;
+let lastRouletteSpinSeq = 0;
+let lastBankDiceRollSeq = 0;
+
+function casinoChipPicker() {
+  return `<div class="chip-picker">${[1,5,10,20,50,100,500].map(v => `<button class="btn-action ${activeCasinoChip === v ? 'active' : ''}" onclick="activeCasinoChip=${v}; renderShowcaseState(gameState)">${v}</button>`).join('')}</div>`;
+}
+
+function casinoBet(betType, selection = '', direction = 1) {
+  const amount = activeCasinoChip;
+  if (direction > 0 && amount > userChipBalance) { toast('Not enough virtual chips for that bet.'); return; }
+  send({ type: direction > 0 ? 'casino_bet' : 'casino_bet_subtract', betType, selection, amount });
+  playSound(direction > 0 ? 'bet' : 'click');
+}
+
+function casinoWagerButtons(betType, selection = '') {
+  const payload = JSON.stringify(selection).replace(/"/g, '&quot;');
+  return `<div class="wager-buttons"><button class="wager-minus" title="Subtract chip" onclick="event.stopPropagation();casinoBet('${betType}',${payload},-1)">−</button><button class="wager-plus" title="Add chip" onclick="event.stopPropagation();casinoBet('${betType}',${payload},1)">+</button></div>`;
+}
+
+function rouletteColor(value) {
+  const text = String(value);
+  if (text === '0' || text === '00') return 'green';
+  return ROULETTE_REDS.has(text) ? 'red' : 'black';
+}
+
+function historyPills(items = [], key = 'number') {
+  return `<div class="casino-history">${items.slice(0, 10).map(item => {
+    const label = item[key] ?? item.total ?? item.winner ?? '?';
+    const color = item.color || (item.winner === 'banker' ? 'black' : item.winner === 'player' ? 'red' : 'green');
+    return `<span class="history-pill ${color}">${label}</span>`;
+  }).join('')}</div>`;
+}
+
+class RouletteCanvasRenderer {
+  constructor(canvas, wheel, isAmerican) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.wheel = wheel;
+    this.isAmerican = isAmerican;
+    this.resize();
+  }
+  resize() {
+    const size = Math.min(380, this.canvas.clientWidth || 340);
+    this.canvas.width = size * devicePixelRatio;
+    this.canvas.height = size * devicePixelRatio;
+    this.ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    this.size = size;
+  }
+  easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  draw(wheelRotation = 0, ballAngle = -Math.PI / 2, ballRadiusRatio = .43) {
+    const ctx = this.ctx;
+    const size = this.size;
+    const cx = size / 2;
+    const cy = size / 2;
+    const outer = size * .47;
+    const inner = size * .18;
+    const seg = (Math.PI * 2) / this.wheel.length;
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(wheelRotation);
+    this.wheel.forEach((value, idx) => {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, outer, idx * seg, (idx + 1) * seg);
+      ctx.closePath();
+      ctx.fillStyle = rouletteColor(value) === 'green' ? '#0b8f4d' : rouletteColor(value) === 'red' ? '#b21f2d' : '#101218';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.35)';
+      ctx.stroke();
+      ctx.save();
+      ctx.rotate(idx * seg + seg / 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(value, outer * .78, 3);
+      ctx.restore();
+    });
+    ctx.beginPath();
+    ctx.arc(0, 0, inner, 0, Math.PI * 2);
+    ctx.fillStyle = '#caa44a';
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(cx, cy);
+    const radius = size * ballRadiusRatio;
+    const bounce = Math.sin(Date.now() / 38) * 2;
+    const bx = Math.cos(ballAngle) * radius;
+    const by = Math.sin(ballAngle) * radius;
+    ctx.beginPath();
+    ctx.arc(bx, by + bounce, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(255,255,255,.8)';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.restore();
+  }
+  animateTo(targetIndex, seq) {
+    const start = performance.now();
+    const duration = 3400;
+    const seg = (Math.PI * 2) / this.wheel.length;
+    const finalWheel = Math.PI * 10;
+    const targetPocketCenter = targetIndex * seg + seg / 2;
+    const finalBallAngle = finalWheel + targetPocketCenter;
+    const step = now => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = this.easeOut(t);
+      const wheelRotation = finalWheel * eased;
+      const ballAngle = (-Math.PI * 14 * eased) + (finalBallAngle * eased);
+      const radius = .46 - (.12 * eased) + Math.abs(Math.sin(t * Math.PI * 18)) * (1 - eased) * .025;
+      this.draw(wheelRotation, ballAngle, radius);
+      if (t < 1 && seq === lastRouletteSpinSeq) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
+class BankDiceCanvasRenderer {
+  constructor(canvas) { this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.resize(); }
+  resize() { const w = this.canvas.clientWidth || 420; this.canvas.width = w * devicePixelRatio; this.canvas.height = (w / 1.75) * devicePixelRatio; this.ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); this.w = w; this.h = w / 1.75; }
+  drawDie(x, y, value, rot = 0) {
+    const ctx = this.ctx; const s = 46; ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(-s/2,-s/2,s,s,8); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#111';
+    const spots = {1:[[0,0]],2:[[-12,-12],[12,12]],3:[[-13,-13],[0,0],[13,13]],4:[[-13,-13],[13,-13],[-13,13],[13,13]],5:[[-13,-13],[13,-13],[0,0],[-13,13],[13,13]],6:[[-13,-14],[13,-14],[-13,0],[13,0],[-13,14],[13,14]]}[value] || [];
+    spots.forEach(([px,py]) => { ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill(); }); ctx.restore();
+  }
+  draw(values = [1,1], progress = 1) { const ctx = this.ctx; ctx.clearRect(0,0,this.w,this.h); ctx.fillStyle = '#0b5f35'; ctx.fillRect(0,0,this.w,this.h); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 8; ctx.strokeRect(8,8,this.w-16,this.h-16); const wiggle = (1-progress) * 90; this.drawDie(this.w*.4 + Math.sin(progress*20)*wiggle, this.h*.52, values[0], progress*10); this.drawDie(this.w*.6 + Math.cos(progress*18)*wiggle, this.h*.45, values[1], -progress*9); }
+  animate(values, seq) { const start = performance.now(); const step = now => { const t = Math.min(1, (now-start)/1500); const shown = t < .9 ? [1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)] : values; this.draw(shown, t); if (t < 1 && seq === lastBankDiceRollSeq) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+}
+
+function renderRouletteTable(msg, me) {
+  const r = msg.roulette || {};
+  const isAmerican = r.isAmerican !== false;
+  const nums = Array.from({ length: 36 }, (_, i) => String(i + 1));
+  const numberGrid = nums.map(n => `<div class="roulette-slot ${rouletteColor(n)}" onclick="casinoBet('straight','${n}',1)">${n}${casinoWagerButtons('straight', n)}</div>`).join('');
+  const zeroes = `<div class="roulette-zeroes"><div class="roulette-slot green" onclick="casinoBet('straight','0',1)">0${casinoWagerButtons('straight','0')}</div>${isAmerican ? `<div class="roulette-slot green" onclick="casinoBet('straight','00',1)">00${casinoWagerButtons('straight','00')}</div><div class="casino-bet-zone" onclick="casinoBet('basket',['0','00','1','2','3'],1)">Basket<br>0-00-1-2-3${casinoWagerButtons('basket',['0','00','1','2','3'])}</div>` : ''}</div>`;
+  const outside = [
+    ['dozen','1','1st 12'], ['dozen','2','2nd 12'], ['dozen','3','3rd 12'],
+    ['column','1','Column 1'], ['column','2','Column 2'], ['column','3','Column 3'],
+    ['red','red','Red'], ['black','black','Black'], ['even','even','Even'], ['odd','odd','Odd'],
+    ['split',['1','2'],'Split 1/2'], ['street',['1','2','3'],'Street 1-3'], ['corner',['1','2','4','5'],'Corner 1/2/4/5']
+  ].map(([type, sel, label]) => `<div class="casino-bet-zone" onclick='casinoBet(${JSON.stringify(type)},${JSON.stringify(sel)},1)'>${label}${casinoWagerButtons(type, sel)}</div>`).join('');
+  return `<div class="casino-layout"><div class="casino-panel"><canvas id="roulette-canvas" class="roulette-canvas"></canvas><div style="font-weight:950;color:#ffca3a;margin-top:8px">${isAmerican ? 'American Roulette' : 'European Roulette'}</div>${historyPills(r.history || [])}</div><div class="casino-panel">${casinoChipPicker()}<div class="table-actions"><button class="btn-action" ${isHost && msg.phase !== 'spinning' ? '' : 'disabled'} onclick="send({type:'roulette_set_mode',isAmerican:${!isAmerican}})">Switch to ${isAmerican ? 'European' : 'American'}</button><button class="btn-action btn-draw-card" ${isHost && msg.phase !== 'spinning' ? '' : 'disabled'} onclick="send({type:'roulette_spin'});playSound('roll')">Spin Wheel</button></div>${zeroes}<div class="casino-layout" style="grid-template-columns:260px 1fr;gap:10px"><div class="roulette-grid compact">${numberGrid}</div><div class="roulette-actions">${outside}</div></div></div></div>`;
+}
+
+function renderBankDiceTable(msg) {
+  const b = msg.bankDice || {};
+  const zones = [
+    ['pass','pass','Pass Line<br>1:1'], ['dontPass','dontPass',"Don't Pass<br>1:1"], ['come','come','Come'], ['dontCome','dontCome',"Don't Come"], ['field','field','Field<br>2/12 pay 2:1']
+  ].map(([type, sel, label]) => `<div class="bankdice-zone" onclick="casinoBet('${type}','${sel}',1)">${label}${casinoWagerButtons(type, sel)}</div>`).join('');
+  return `<div class="casino-layout"><div class="casino-panel"><canvas id="bankdice-canvas" class="dice-canvas"></canvas><div style="font-weight:950;color:#ffca3a;margin-top:8px">Point: ${b.point || 'OFF'} • ${escHtml(msg.phase || 'comeout')}</div>${historyPills((b.history || []).map(h => ({ total:h.total, color:h.total === 7 ? 'green' : 'black' })), 'total')}</div><div class="casino-panel">${casinoChipPicker()}<div class="bankdice-layout">${zones}</div><div class="table-actions"><button class="btn-action btn-draw-card" ${isHost && msg.phase !== 'rolling' ? '' : 'disabled'} onclick="send({type:'bank_dice_roll'});playSound('roll')">Cast Dice</button></div></div></div>`;
+}
+
+function renderBaccaratTable(msg) {
+  const b = msg.baccarat || {};
+  const pCards = (b.playerHand || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+  const bankerCards = (b.bankerHand || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+  return `<div class="casino-panel">${casinoChipPicker()}<div class="baccarat-felt"><div class="baccarat-sector" onclick="casinoBet('player','player',1)">PLAYER<br>1:1${casinoWagerButtons('player','player')}</div><div class="baccarat-sector tie" onclick="casinoBet('tie','tie',1)">TIE<br>8:1${casinoWagerButtons('tie','tie')}</div><div class="baccarat-sector" onclick="casinoBet('banker','banker',1)">BANKER<br>1:1 - 5%${casinoWagerButtons('banker','banker')}</div></div><div class="showcase-community"><strong>Player ${b.playerTotal ?? 0}</strong>${pCards}</div><div class="showcase-community"><strong>Banker ${b.bankerTotal ?? 0}</strong>${bankerCards}</div>${historyPills(b.history || [], 'winner')}<div class="table-actions"><button class="btn-action btn-draw-card" ${isHost && msg.phase === 'betting' ? '' : 'disabled'} onclick="send({type:'baccarat_deal'});playSound('card')">Deal Punto Banco</button><button class="btn-action btn-pass-turn" ${isHost && msg.phase === 'settled' ? '' : 'disabled'} onclick="send({type:'casino_new_round'});playSound('ready')">New Round</button></div></div>`;
+}
+
+function renderCasinoExtension(msg, me) {
+  userChipBalance = Number(me?.chips || 0);
+  if (msg.gameType === 'roulette') return renderRouletteTable(msg, me);
+  if (msg.gameType === 'bank_dice') return renderBankDiceTable(msg, me);
+  if (msg.gameType === 'baccarat') return renderBaccaratTable(msg, me);
+  return '';
+}
+
+function mountCasinoCanvases(msg) {
+  if (msg.gameType === 'roulette') {
+    const canvas = document.getElementById('roulette-canvas');
+    if (!canvas) return;
+    const r = msg.roulette || {};
+    const renderer = new RouletteCanvasRenderer(canvas, r.wheel || AMERICAN_ROULETTE_WHEEL, r.isAmerican !== false);
+    renderer.draw();
+    if ((r.spinSeq || 0) && r.spinSeq !== lastRouletteSpinSeq) {
+      lastRouletteSpinSeq = r.spinSeq;
+      renderer.animateTo(r.winningIndex || 0, r.spinSeq);
+    } else if (r.winningIndex != null) {
+      const seg = Math.PI * 2 / (r.wheel || AMERICAN_ROULETTE_WHEEL).length;
+      const finalWheel = Math.PI * 10;
+      renderer.draw(finalWheel, finalWheel + r.winningIndex * seg + seg / 2, .34);
+    }
+  }
+  if (msg.gameType === 'bank_dice') {
+    const canvas = document.getElementById('bankdice-canvas');
+    if (!canvas) return;
+    const renderer = new BankDiceCanvasRenderer(canvas);
+    const values = (msg.bankDice?.finalDice || []).length ? msg.bankDice.finalDice.map(Number) : ((msg.dice || []).every(v => Number(v)) ? msg.dice.map(Number) : [1,1]);
+    renderer.draw(values);
+    const seq = msg.bankDice?.rollSeq || 0;
+    if (seq && seq !== lastBankDiceRollSeq) { lastBankDiceRollSeq = seq; renderer.animate(values, seq); }
+  }
+}
+
+function renderShowcaseState(msg) {
+  const showcase = document.getElementById('game-showcase');
+  const center = document.getElementById('center');
+  const handArea = document.getElementById('hand-area');
+  center.style.display = 'none';
+  showcase.style.display = 'block';
+  handArea.style.display = 'flex';
+  document.getElementById('hand-label').textContent = 'TABLE CONTROLS';
+  document.getElementById('btn-draw').style.display = 'none';
+  document.getElementById('btn-pass').style.display = 'none';
+  document.getElementById('opponents').innerHTML = '';
+  document.getElementById('turn-label').textContent = prettyGameName(msg.gameType);
+  document.getElementById('turn-label').style.color = '#4cc9f0';
+  document.getElementById('active-color-badge').textContent = msg.message || 'Table is live';
+
+  const players = msg.players || [];
+  const me = players.find(p => p.isYou) || players[msg.yourIdx];
+  const title = prettyGameName(msg.gameType);
+  if (msg.gameType === 'chat_room') {
+    showcase.innerHTML = `<div class="chat-room-full"><h1>Chat Hub</h1><p>${escHtml(msg.message || 'Hang out and chat with the room.')}</p><button class="btn-action btn-draw-card" onclick="if(!chatOpen)toggleChat()">Open Fullscreen Chat</button></div>`;
+    document.getElementById('hand-cards').innerHTML = isHost ? `<div class="table-actions"><button class="btn-action btn-pass-turn" onclick="sendRestart()">Back to Menu</button></div>` : '';
+    return;
+  }
+  const community = (msg.community || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+  const dealerCards = msg.dealer?.cards ? msg.dealer.cards.map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('') : '';
+  const isLcr = msg.gameType === 'left_center_right';
+  const potAmount = isLcr ? (msg.centerChips || 0) : (msg.pot || 0);
+  const potLabel = isLcr ? `${potAmount} center chips` : `${potAmount} pot`;
+
+  const seats = players.map(p => {
+    const cards = (p.cards || []).map(c => `<div class="${cardClass(c)}">${cardFace(c)}</div>`).join('');
+    const usesChips = ['blackjack_chips', 'texas_holdem', 'left_center_right', 'roulette', 'bank_dice', 'baccarat'].includes(msg.gameType);
+    const chips = usesChips ? (isLcr ? chipHtml(p.chips || 0, 'lcr') : chipHtml(p.chips || 0)) : '';
+    const bet = !isLcr && p.bet ? `<div class="bet-badge" style="margin-top:6px;color:#ffca3a;font-weight:900">Bet: ${p.bet}</div>` : '';
+    const result = p.result ? `<div style="color:#ffca3a;font-weight:900">${String(p.result).toUpperCase()}</div>` : '';
+    const role = p.role ? `<div style="font-size:.72rem;color:#4cc9f0;font-weight:900">${escHtml(p.role)}</div>` : '';
+    const folded = p.folded ? `<div style="color:#ff595e;font-weight:900">FOLDED</div>` : '';
+    return `<div class="showcase-seat ${p.isYou ? 'you' : ''}">
+      <div class="showcase-seat-name">${escHtml(p.name)}${p.isYou ? ' • You' : ''}</div>${role}
+      <div class="showcase-seat-cards">${cards}</div>
+      <div>${chips}</div>${bet}${result}${folded}
+      <div style="font-size:.75rem;color:#c7d7e8;margin-top:6px">${usesChips ? (isLcr ? `${p.chips || 0} LCR chips` : `${p.chips || 0} balance`) : 'No chips needed'}</div>
+    </div>`;
+  }).join('');
+
+  const bingoNumber = msg.bingoDrawing ? '-' : (msg.calledNumber || 'Ready');
+  const bingo = msg.gameType === 'bingo' ? `<div class="bingo-call ${msg.bingoDrawing ? 'rolling' : ''}">${bingoNumber}</div>${renderBingoCard(msg)}` : '';
+  const dice = msg.dice?.length && msg.gameType !== 'bank_dice' ? `<div class="dice-row">${msg.dice.map(d => `<div class="die ${d === '-' ? 'blank' : ''}">${d}</div>`).join('')}</div>` : '';
+  const casinoExtension = msg.gameType === 'chat_room' ? `<div class="chat-room-full"><h2>Chat Hub</h2><p>Open the chat button for a full-screen room conversation.</p><button class="btn-action btn-draw-card" onclick="if(!chatOpen)toggleChat()">Open Chat Hub</button></div>` : renderCasinoExtension(msg, me);
+
+  showcase.innerHTML = `<div class="showcase-table">
+    <div class="showcase-title">${title}</div>
+    <div class="showcase-message">${escHtml(msg.message || '')}</div>
+    ${dealerCards ? `<div style="text-align:center;color:#dbe9f7;font-weight:800">Dealer</div><div class="showcase-community">${dealerCards}</div>` : ''}
+    ${community ? `<div style="text-align:center;color:#dbe9f7;font-weight:800">Community Cards</div><div class="showcase-community">${community}</div>` : ''}
+    ${dice}
+    ${bingo}
+    ${casinoExtension}
+    ${['texas_holdem','left_center_right'].includes(msg.gameType) ? `<div class="showcase-pot"><div class="pot-counter">${potAmount}</div><div>${potLabel}</div></div>` : ''}
+    <div class="showcase-players">${seats}</div>
+  </div>`;
+
+  mountCasinoCanvases(msg);
+  document.getElementById('hand-cards').innerHTML = renderBetControls(msg, me) + renderBlackjackControls(msg, me) + renderHoldemControls(msg, me) + renderLcrControls(msg) + renderMenuControls(msg);
+}
+
+function renderMenuControls(msg) { return ''; }
+
+function tableBet(amount) { send({ type:'table_bet', amount }); }
+function tableBetSubtract(amount) { send({ type:'table_bet_subtract', amount }); }
+function bingoMark(value) {
+  if (value === 'FREE') return;
+  send({ type:'bingo_mark', number: Number(value) });
 }
 
 function renderOpponents(state) {
@@ -589,76 +1404,73 @@ function renderOpponents(state) {
   });
 }
 
-function renderTopCard(card, activeColor) {
+function renderTopCard(card, activeSuit) {
   const el    = document.getElementById('top-card');
   const valEl = document.getElementById('top-card-val');
   const tlEl  = document.getElementById('top-corner-tl');
   const lblEl = document.getElementById('active-col-label');
-  if (!card) { el.style.background='#1b2d42'; valEl.textContent='—'; return; }
-  const col   = COL_HEX[activeColor] || COL_HEX[card.col] || '#333';
-  const dark  = COL_DARK[activeColor] || '#222';
-  el.style.background = `linear-gradient(145deg,${col},${dark})`;
-  el.style.color = activeColor==='Yellow'?'#333':'#fff';
-  valEl.textContent = card.val;
-  tlEl.textContent  = card.col === 'Wild' ? '★' : card.val;
-  lblEl.textContent = activeColor + (card.col==='Wild'?' (Wild)':'');
-  lblEl.style.color = col;
+  if (!card) { el.style.background='#f8fbff'; valEl.textContent='—'; return; }
+  const suit = activeSuit || card.suit;
+  const suitColor = SUIT_COLOR[card.suit] || '#111';
+  el.style.background = 'linear-gradient(145deg,#ffffff,#dfe7f2)';
+  el.style.color = suitColor;
+  valEl.textContent = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+  tlEl.textContent  = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+  lblEl.textContent = `Active suit: ${suit} ${SUIT_SYMBOL[suit] || ''}`;
+  lblEl.style.color = SUIT_COLOR[suit] || '#e0e1dd';
 
   const badge = document.getElementById('active-color-badge');
-  badge.textContent = '● ' + activeColor;
-  badge.style.background = col;
-  badge.style.color = activeColor==='Yellow'?'#333':'#fff';
+  badge.textContent = `${SUIT_SYMBOL[suit] || '●'} ${suit}`;
+  badge.style.background = '#f8fbff';
+  badge.style.color = SUIT_COLOR[suit] || '#111';
 }
 let cpuCount = 0;
 function changeCPU(delta) {
     // Only the host can add or remove CPUs
-    if (!isHost) return; 
-    
+    if (!isHost) return;
+
     cpuCount = Math.max(0, Math.min(9, cpuCount + delta));
     document.getElementById('cpu-count').textContent = cpuCount;
-    
-    // Tell the server in Oregon to add these bots
+
+    // Tell the server to add these bots
     send({ type: 'set_cpus', count: cpuCount });
 }
 
-function renderHand(hand, activeColor, activeVal, isMyTurn, hasDrawn) {
+function renderHand(hand, activeSuit, activeRank, isMyTurn, hasDrawn) {
   const el = document.getElementById('hand-cards');
   el.innerHTML = '';
   hand.forEach((card, idx) => {
-    const playable = isMyTurn && !hasDrawn
-      ? (card.col==='Wild' || card.col===activeColor || card.val===activeVal)
-      : false;
+    const isPlayableCard = card.rank === '8' || card.suit === activeSuit || card.rank === activeRank;
+    const playable = isMyTurn && !hasDrawn ? isPlayableCard : false;
     // Also playable after draw if it matches
-    const playableAfterDraw = isMyTurn && hasDrawn && idx === hand.length-1
-      ? (card.col==='Wild' || card.col===activeColor || card.val===activeVal)
-      : false;
+    const playableAfterDraw = isMyTurn && hasDrawn && idx === hand.length-1 ? isPlayableCard : false;
     const canClick = playable || playableAfterDraw;
+    const face = `${card.rank}${SUIT_SYMBOL[card.suit] || ''}`;
+    const suitColor = SUIT_COLOR[card.suit] || '#111';
 
     const div  = document.createElement('div');
     div.className = 'uno-card' + (canClick ? '' : ' unplayable');
-    const col  = COL_HEX[card.col] || '#333';
-    const dark = COL_DARK[card.col] || '#222';
-    div.style.background = `linear-gradient(145deg,${col},${dark})`;
-    div.style.color = card.col==='Yellow'?'#333':'#fff';
+    div.style.background = 'linear-gradient(145deg,#ffffff,#dfe7f2)';
+    div.style.color = suitColor;
     // Corners
     const tl = document.createElement('div');
     tl.className='card-corner tl';
-    tl.textContent = card.val;
+    tl.textContent = face;
     const br = document.createElement('div');
     br.className='card-corner br';
-    br.textContent = card.val;
+    br.textContent = face;
     // Center
     const inner = document.createElement('div');
     inner.className='card-inner';
-    inner.style.color = col;
+    inner.style.color = suitColor;
     const valSpan = document.createElement('span');
     valSpan.className='card-value-text';
-    valSpan.textContent = card.val==='W'?'🌈':card.val==='+4'?'+4':card.val;
+    valSpan.textContent = card.rank === '8' ? `8${SUIT_SYMBOL[card.suit] || ''}★` : face;
     inner.appendChild(valSpan);
     div.appendChild(tl);
     div.appendChild(inner);
     div.appendChild(br);
-    div.title = card.col + ' ' + card.val;
+    div.title = `${card.rank} of ${card.suit}`;
     if (canClick) {
       div.onclick = () => playCard(idx, card);
     }
@@ -685,22 +1497,21 @@ function renderStatus(state) {
 
 // ── Play a card ─────────────────────────────────────────
 function playCard(idx, card) {
-  if (card.col === 'Wild') {
+  if (card.rank === '8') {
     pendingPlayIdx = idx;
     document.getElementById('wild-chooser').style.display = 'flex';
     playSound('wild');
-      } else {
-        playSound('play'); // <--- ADD THIS LINE
-        send({ type: 'play', cardIdx: idx, chosenColor: card.col });
-    }
-
+  } else {
+    playSound('play');
+    send({ type: 'play', cardIdx: idx, chosenSuit: card.suit });
+  }
 }
 
-function chooseWild(color) {
+function chooseWild(suit) {
   document.getElementById('wild-chooser').style.display = 'none';
   playSound('play');
   if (pendingPlayIdx !== null) {
-    send({ type:'play', cardIdx: pendingPlayIdx, chosenColor: color });
+    send({ type:'play', cardIdx: pendingPlayIdx, chosenSuit: suit });
     pendingPlayIdx = null;
   }
 }
@@ -709,7 +1520,7 @@ function sendDraw() {
     if (!gameState) return;
     if (gameState.yourIdx !== gameState.turnIdx) return;
     if (gameState.hasDrawn) return;
-    playSound('draw'); // <--- ADD THIS LINE
+    playSound('draw');
     send({ type: 'draw' });
 }
 
@@ -717,10 +1528,16 @@ function sendPass() { send({ type:'pass' }); }
 
 // ── Game Over ───────────────────────────────────────────
 function onGameOver(msg) {
+  playSound('win');
   document.getElementById('over-title').textContent = '🏆 ' + msg.winner + ' wins!';
-  document.getElementById('over-sub').textContent = msg.winner === myName
-    ? 'Congratulations — you emptied your hand first!'
-    : msg.winner + ' got rid of all their cards.';
+  const reasonText = {
+    crazy_eights: msg.winner === myName ? 'Congratulations — you emptied your hand first!' : msg.winner + ' got rid of all their cards.',
+    bingo: 'BINGO! Five in a row wins.',
+    left_center_right: 'Last player with chips wins.',
+    texas_holdem: 'The best poker hand won the pot.',
+    blackjack_chips: 'The blackjack round is complete.'
+  };
+  document.getElementById('over-sub').textContent = reasonText[msg.gameType] || reasonText[msg.reason] || `${msg.winner} won ${prettyGameName(gameState?.gameType)}.`;
   document.getElementById('screen-over').style.display = 'flex';
 }
 
@@ -735,7 +1552,13 @@ function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chat-panel').classList.toggle('open', chatOpen);
   document.getElementById('chat-icon').textContent = chatOpen ? '✕' : '💬';
-if (chatOpen) document.getElementById('chat-dot').style.display = 'none';
+if (chatOpen) {
+    const dot = document.getElementById('chat-dot');
+    if (dot) {
+      dot.style.display = 'none';
+      dot.classList.remove('active');
+    }
+  }
 }
 
 function sendChat() {
@@ -746,49 +1569,80 @@ function sendChat() {
   inp.value = '';
 }
 
+function pickRandomTrack() {
+  if (MUSIC_TRACKS.length <= 1) return 0;
+  let i; do { i = Math.floor(Math.random() * MUSIC_TRACKS.length); } while (i === lastTrackIdx);
+  lastTrackIdx = i;
+  return i;
+}
+
+function syncGameplayMusic(state) {
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+  bgm.muted = musicMuted;
+  if (state !== 'playing' || !roomGameplayMusicEnabled) { bgm.pause(); return; }
+  if (!bgm.src) { bgm.src = MUSIC_TRACKS[pickRandomTrack()]; }
+  if (bgm.paused) bgm.play().catch(() => {});
+  bgm.onended = () => { bgm.src = MUSIC_TRACKS[pickRandomTrack()]; bgm.play().catch(() => {}); };
+}
+
+function toggleMusicMute() {
+  musicMuted = !musicMuted;
+  const bgm = document.getElementById('bgm');
+  if (bgm) bgm.muted = musicMuted;
+  document.getElementById('btn-mute-music').textContent = `Music: ${musicMuted ? 'Off' : 'On'}`;
+}
+
+function toggleSfxMute() {
+  sfxMuted = !sfxMuted;
+  document.getElementById('btn-mute-sfx').textContent = `SFX: ${sfxMuted ? 'Off' : 'On'}`;
+}
+
 function playSound(type) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (sfxMuted) return;
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+  const ctx = new AudioCtor();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
+  const profiles = {
+    play: { wave:'sine', from:440, to:220, dur:.1, vol:.1 },
+    draw: { wave:'triangle', from:150, to:300, dur:.2, vol:.05 },
+    ding: { wave:'sine', from:880, to:880, dur:.5, vol:.1 },
+    wild: { wave:'sine', from:300, to:600, dur:.3, vol:.1 },
+    bet: { wave:'square', from:520, to:700, dur:.12, vol:.06 },
+    ready: { wave:'triangle', from:660, to:990, dur:.18, vol:.08 },
+    roll: { wave:'sawtooth', from:120, to:80, dur:.24, vol:.05 },
+    card: { wave:'triangle', from:340, to:520, dur:.14, vol:.07 },
+    fold: { wave:'sine', from:260, to:130, dur:.22, vol:.06 },
+    win: { wave:'triangle', from:660, to:990, dur:.45, vol:.09 },
+    click: { wave:'sine', from:500, to:500, dur:.06, vol:.04 }
+  };
+  const profile = profiles[type] || profiles.click;
+  osc.type = profile.wave;
   osc.connect(gain);
   gain.connect(ctx.destination);
-  if (type === 'play') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    osc.start(); osc.stop(ctx.currentTime + 0.1);
-  } else if (type === 'draw') {
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(150, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(300, ctx.currentTime + 0.2);
-    gain.gain.setValueAtTime(0.05, ctx.currentTime);
-    osc.start(); osc.stop(ctx.currentTime + 0.2);
-  } else if (type === 'ding') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-    osc.start(); osc.stop(ctx.currentTime + 0.5);
-    } else if (type === 'wild') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(300, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
-    }
-  }
-  
+  osc.frequency.setValueAtTime(profile.from, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(1, profile.to), ctx.currentTime + profile.dur);
+  gain.gain.setValueAtTime(Math.max(0.0001, profile.vol), ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + profile.dur);
+  osc.start();
+  osc.stop(ctx.currentTime + profile.dur);
+}
+
+
+function onChatCleared(msg) {
+    const chatBox = document.getElementById('chat-messages');
+    if (!chatBox) return;
+    chatBox.innerHTML = '';
+}
+
 function onChat(msg) {
-    // 1. Find your chat container (Change 'chat-messages' to your actual ID if needed)
-    const chatBox = document.getElementById('chat-messages'); 
+    const chatBox = document.getElementById('chat-messages');
     if (!chatBox) return; // Safety check
 
-    // 2. Create the message element
     const div = document.createElement('div');
-    
-    // 3. Identify if it's a System Log vs Human Chat
+
     const isSystem = (msg.from === "Server" || msg.from === "SERVER");
 
     if (isSystem) {
@@ -799,36 +1653,63 @@ function onChat(msg) {
         div.style.color = "#ffffff"; // White for humans
     }
 
-    // 4. Set the text
     div.textContent = `${msg.from}: ${msg.text}`;
     chatBox.appendChild(div);
-    
-    // 5. Auto-scroll to the bottom
+
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // 6. Only "Ding" if it's NOT from the server
     if (!isSystem) {
         if (typeof chatSound !== 'undefined') {
-            chatSound.play().catch(e => {}); 
-        } // THE FIX: Show red dot if the chat panel is currently closed
+            chatSound.play().catch(e => {});
+        }
+
 if (!chatOpen) {
   const dot = document.getElementById('chat-dot');
-  if (dot) dot.style.display = 'block';
+  if (dot) {
+    dot.style.display = 'block';
+    dot.classList.add('active');
+  }
 }
 
     }
 }
 
-// iPhone Audio "Wake Up" Trick:
-// This "unlocks" the speakers as soon as you tap ANY button (like Join)
-document.addEventListener('click', function() {
-    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (tempCtx.state === 'suspended') tempCtx.resume();
-}, { once: true });
+function setStartupAudioPrompt(visible) {
+  startupSoundBlocked = visible;
+  const prompt = document.getElementById('audio-unlock');
+  if (prompt) prompt.classList.toggle('show', visible && !startupSoundPlayed);
+}
 
+function playStartupSound() {
+  if (sfxMuted || startupSoundPlayed) return Promise.resolve(false);
+  const sound = document.getElementById('startup-sound');
+  if (!sound) return Promise.resolve(false);
+  sound.muted = false;
+  sound.volume = 0.85;
+  sound.currentTime = 0;
+  return sound.play()
+    .then(() => {
+      startupSoundPlayed = true;
+      setStartupAudioPrompt(false);
+      return true;
+    })
+    .catch(() => {
+      setStartupAudioPrompt(true);
+      return false;
+    });
+}
 
+function unlockAudioAndPlayStartup() {
+  return playStartupSound();
+}
 
-// NO BRACE HERE
+function launchTabletopOnline() {
+  const launch = document.getElementById('screen-launch');
+  return unlockAudioAndPlayStartup().finally(() => {
+    if (launch) launch.style.display = 'none';
+  });
+}
+
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -862,13 +1743,17 @@ document.addEventListener('keydown', e => {
     joinRoom();
   }
   if (e.key === 'Escape') {
+    closeInfo();
     document.getElementById('wild-chooser').style.display = 'none';
     if (chatOpen) toggleChat();
   }
 });
 
 // Autofocus name on load
-window.onload = () => document.getElementById('inp-name').focus();
+window.onload = () => {
+  document.getElementById('inp-name').focus();
+  syncInfoButtonLabel();
+};
 </script>
 </body>
 </html>
