@@ -209,7 +209,7 @@ function isGamblingGame(gameType) {
 }
 
 function canUseGame(room, gameType) {
-    return VALID_GAME_TYPES.includes(gameType) && (!!room?.gamblingEnabled || !isGamblingGame(gameType));
+    return VALID_GAME_TYPES.includes(gameType);
 }
 
 function sendChat(room, from, text) {
@@ -542,6 +542,7 @@ function sendTableState(room) {
             soundEvent: data.soundEvent || null,
             chipDenominations: CHIP_DENOMINATIONS,
             gameplayMusicEnabled: room.gameplayMusicEnabled,
+            gamblingEnabled: !!room.gamblingEnabled,
             roulette: room.gameType === 'roulette' ? {
                 isAmerican: !!data.isAmerican,
                 wheel: rouletteWheel(data.isAmerican),
@@ -829,7 +830,6 @@ function handleBlackjackInsurance(room, playerIdx, take) {
 }
 
 function handleBlackjackAction(room, playerIdx, action) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips' || data.phase !== 'player_turn' || data.turnIdx !== playerIdx) return;
     const player = data.players[playerIdx]; if (!player || player.bust || player.stand) return;
@@ -838,11 +838,36 @@ function handleBlackjackAction(room, playerIdx, action) {
     runTableBots(room); sendTableState(room);
 }
 
+
+function dealPracticeBlackjack(room, message = 'Practice Blackjack: no betting, just hit or stand.') {
+    const data = room.tableData;
+    if (!data || room.gameType !== 'blackjack_chips') return;
+    room.deck = buildDeck();
+    data.players.forEach((p, idx) => {
+        p.bet = 0;
+        p.doneBetting = true;
+        p.cards = room.players[idx].connected ? [room.deck.pop(), room.deck.pop()] : [];
+        p.stand = false;
+        p.bust = false;
+        p.result = null;
+        p.insurance = 0;
+        p.insuranceOffered = false;
+    });
+    data.dealer = { cards: [room.deck.pop(), { hidden: true }], reveal: false };
+    data.pot = 0;
+    data.phase = 'player_turn';
+    data.turnIdx = currentPlayerIdx(data, room);
+    data.message = message;
+    runTableBots(room);
+}
+
 function resetBlackjackHand(room) {
     if (!room.tableData || room.gameType !== 'blackjack_chips') return;
     room.deck = buildDeck();
     room.tableData.players.forEach(p => { p.bet=0; p.cards=[]; p.doneBetting=false; p.stand=false; p.bust=false; p.result=null; p.insurance=0; p.insuranceOffered=false; });
-    room.tableData.dealer = { cards: [] }; room.tableData.pot = 0; room.tableData.phase = 'betting'; room.tableData.message = 'Place your blackjack bet, then press Done Betting.';
+    room.tableData.dealer = { cards: [] }; room.tableData.pot = 0;
+    if (!room.gamblingEnabled) { dealPracticeBlackjack(room); sendTableState(room); return; }
+    room.tableData.phase = 'betting'; room.tableData.message = 'Place your blackjack bet, then press Done Betting.';
     autoBlackjackBots(room); sendTableState(room);
 }
 
@@ -1075,7 +1100,6 @@ function rouletteOdds(type) {
 }
 
 function spinRoulette(room) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
     const wheel = rouletteWheel(data.isAmerican);
@@ -1110,7 +1134,6 @@ function spinRoulette(room) {
 }
 
 function setRouletteMode(room, isAmerican) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
     data.isAmerican = !!isAmerican;
@@ -1216,7 +1239,6 @@ function settleBankDice(room, d1, d2) {
 }
 
 function rollBankDice(room) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'bank_dice' || data.phase === 'rolling') return;
     const d1 = 1 + Math.floor(Math.random() * 6);
@@ -1267,7 +1289,6 @@ function shouldBankerDraw(bankerTotal, playerThirdValue) {
 }
 
 function dealBaccarat(room) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'baccarat' || data.phase !== 'betting') return;
     room.deck = buildDeck();
@@ -1316,7 +1337,6 @@ function dealBaccarat(room) {
 }
 
 function resetCasinoRound(room) {
-    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data) return;
     if (room.gameType === 'roulette') {
@@ -1339,13 +1359,14 @@ function startTableGame(room) {
 
     if (room.gameType === 'blackjack_chips') {
         room.tableData = {
-            players: makeChipPlayers(room, 500),
+            players: makeChipPlayers(room, room.gamblingEnabled ? 500 : 0).map(p => room.gamblingEnabled ? p : { ...p, chips: null }),
             dealer: { cards: [] },
             pot: 0,
             phase: 'betting',
             turnIdx: 0,
-            message: 'Place your blackjack bet, then press Done Betting. Starting balance: 500.',
+            message: room.gamblingEnabled ? 'Place your blackjack bet, then press Done Betting. Starting balance: 500.' : 'Practice Blackjack: no betting, just hit or stand.',
         };
+        if (!room.gamblingEnabled) dealPracticeBlackjack(room);
     } else if (room.gameType === 'texas_holdem') {
         room.tableData = {
             players: makeChipPlayers(room, 1000),
@@ -1437,7 +1458,6 @@ function startTableGame(room) {
 }
 
 function startGame(room) {
-    if (!canUseGame(room, room.gameType)) { room.gameType = 'crazy_eights'; broadcast(room, lobbyPayload(room)); return; }
     if (room.players.length < 2 && room.gameType !== 'chat_room') return;
     if (room.gameType !== 'crazy_eights') {
         startTableGame(room);
@@ -1594,10 +1614,9 @@ wss.on('connection', (ws) => {
             myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
             myRoom.gameplayMusicEnabled = !!msg.gameplayMusicEnabled;
             myRoom.gamblingEnabled = !!msg.gamblingEnabled;
-            if (!myRoom.gamblingEnabled && isGamblingGame(myRoom.gameType)) myRoom.gameType = 'crazy_eights';
             if (msg.bingoMode === 'easy' || msg.bingoMode === 'hard') myRoom.bingoMode = msg.bingoMode;
             broadcast(myRoom, lobbyPayload(myRoom));
-            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Gambling games ${myRoom.gamblingEnabled ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}. Bingo mode ${(myRoom.bingoMode || 'hard').toUpperCase()}.`);
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Betting chips ${myRoom.gamblingEnabled ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}. Bingo mode ${(myRoom.bingoMode || 'hard').toUpperCase()}.`);
             return;
         }
 
@@ -1616,6 +1635,8 @@ wss.on('connection', (ws) => {
             startGame(myRoom);
             return;
         }
+
+        if (!myRoom || myIdx < 0) return;
 
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'play') { handlePlay(myRoom, myIdx, msg.cardIdx, msg.chosenSuit || msg.chosenColor); return; }
         if (myRoom.gameType === 'crazy_eights' && msg.type === 'draw') { handleDraw(myRoom, myIdx); return; }
@@ -1641,6 +1662,7 @@ wss.on('connection', (ws) => {
         if (msg.type === 'chat') {
             const text = (msg.text||'').slice(0,200);
             const speaker = myRoom.players[myIdx];
+            if (!speaker) return;
             sendChat(myRoom, speaker.name, text);
             if (!speaker.isBot) {
                 maybeRunCpuChat(myRoom, speaker.name, text);

@@ -487,8 +487,8 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     </div>
     <div class="lobby-options" id="host-options">
       <label><input type="checkbox" id="opt-chat-filter" onchange="sendRoomOptions()"> Enable chat filter</label>
-      <label><input type="checkbox" id="opt-gambling" onchange="sendRoomOptions()"> Enable casino and betting games</label>
-      <div style="font-size:.75rem;color:#8ac926;margin:-4px 0 4px">Family mode is on by default: casino and betting games stay hidden until the host enables them.</div>
+      <label><input type="checkbox" id="opt-gambling" onchange="sendRoomOptions()"> Enable betting chips</label>
+      <div style="font-size:.75rem;color:#8ac926;margin:-4px 0 4px">Family mode is on by default: casino games stay available, but betting chips are hidden until the host enables them.</div>
       <label><input type="checkbox" id="opt-game-music" onchange="sendRoomOptions()"> Enable gameplay music for everyone</label>
       <label>Bingo mode <select id="opt-bingo-mode" class="select-input" onchange="sendRoomOptions()"><option value="hard">Hard cage (no repeats)</option><option value="easy">Easy picker (repeats allowed)</option></select></label>
     </div>
@@ -792,12 +792,11 @@ function syncGamblingGameOptions() {
   const gameSelect = document.getElementById('lby-game-select');
   if (!gameSelect) return;
   [...gameSelect.options].forEach(option => {
-    const gambling = isGamblingGame(option.value);
-    option.hidden = gambling && !roomGamblingEnabled;
-    option.disabled = gambling && !roomGamblingEnabled;
+    option.hidden = false;
+    option.disabled = false;
   });
-  if (!roomGamblingEnabled && isGamblingGame(gameSelect.value)) gameSelect.value = 'crazy_eights';
 }
+
 
 // ── Lobby ───────────────────────────────────────────────
 function onLobby(msg) {
@@ -814,7 +813,6 @@ function onLobby(msg) {
   document.getElementById('lby-code-big').textContent = myRoom;
   roomGamblingEnabled = !!msg.gamblingEnabled;
   selectedGame = msg.gameType || selectedGame;
-  if (!roomGamblingEnabled && isGamblingGame(selectedGame)) selectedGame = 'crazy_eights';
   document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
 
   const ul = document.getElementById('lby-players');
@@ -869,8 +867,7 @@ function setLobbyGameType() {
   if (!isHost) return;
   const sel = document.getElementById('lby-game-select');
   if (!sel) return;
-  selectedGame = (!roomGamblingEnabled && isGamblingGame(sel.value)) ? 'crazy_eights' : sel.value;
-  if (sel.value !== selectedGame) sel.value = selectedGame;
+  selectedGame = sel.value;
   document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
   send({ type:'set_game_type', gameType: selectedGame });
 }
@@ -883,8 +880,8 @@ function openInfoForGame(gameKey) {
   const tabs = document.getElementById('info-tabs');
   const content = document.getElementById('info-content');
   if (!modal || !tabs || !content) return;
-  const keys = Object.keys(GAME_GUIDES).filter(key => roomGamblingEnabled || !isGamblingGame(key));
-  const activeKey = GAME_GUIDES[gameKey] && keys.includes(gameKey) ? gameKey : (gameKey === 'all' ? 'all' : 'crazy_eights');
+  const keys = Object.keys(GAME_GUIDES);
+  const activeKey = GAME_GUIDES[gameKey] ? gameKey : (gameKey === 'all' ? 'all' : 'crazy_eights');
   tabs.innerHTML = '';
 
   const addTab = (key, label) => {
@@ -962,6 +959,7 @@ function onState(msg) {
   if (msg.state === 'over') return;
   showScreen('game');
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
   const hostChatClearBtn = document.getElementById('chat-clear-host');
   if (hostChatClearBtn) hostChatClearBtn.style.display = isHost ? 'inline-block' : 'none';
   const globalBack = document.getElementById('global-back-menu');
@@ -1015,7 +1013,7 @@ function chipHtml(amount, kind = 'casino') {
 }
 
 function renderBetControls(msg, me) {
-  if (msg.gameType !== 'blackjack_chips' || msg.phase !== 'betting') return '';
+  if (msg.gameType !== 'blackjack_chips' || msg.phase !== 'betting' || !msg.gamblingEnabled) return '';
   const denominations = msg.chipDenominations || [1,5,10,20,50,100,500];
   const doneDisabled = !me?.bet || me?.doneBetting ? 'disabled' : '';
   return `<div class="table-actions">
@@ -1027,7 +1025,7 @@ function renderBetControls(msg, me) {
 
 function renderBlackjackControls(msg, me) {
   if (msg.gameType !== 'blackjack_chips') return '';
-  if (msg.phase === 'insurance' && me?.insuranceOffered) {
+  if (msg.gamblingEnabled && msg.phase === 'insurance' && me?.insuranceOffered) {
     return `<div class="table-actions"><button class="btn-action btn-draw-card" onclick="send({type:'bj_insurance',take:true}); playSound('bet')">Take Insurance (${Math.floor((me.bet || 0) / 2)})</button><button class="btn-action btn-pass-turn" onclick="send({type:'bj_insurance',take:false}); playSound('click')">No Insurance</button></div>`;
   }
   if (msg.phase === 'settled') {
@@ -1043,6 +1041,7 @@ function renderHoldemControls(msg, me) {
     return `<div class="table-actions"><button class="btn-action btn-draw-card" ${isHost ? '' : 'disabled'} onclick="send({type:'table_play_again'}); playSound('ready')">Next Hand</button><button class="btn-action btn-pass-turn" ${isHost ? '' : 'disabled'} onclick="sendRestart()">Back to Menu</button></div>`;
   }
   if (!['preflop','flop','turn','river'].includes(msg.phase) || !me?.isYou || msg.turnIdx !== msg.yourIdx) return '';
+  if (!msg.gamblingEnabled) return '<div class="table-actions"><span style="align-self:center;color:#c7d7e8;font-weight:800">Family mode is on: betting controls are hidden.</span></div>';
   const toCall = Math.max(0, (msg.currentBet || 0) - (me.roundBet || 0));
   const minBet = msg.minRaise || 20;
   activePokerBet = Math.max(minBet, activePokerBet || minBet);
@@ -1111,10 +1110,12 @@ let lastRouletteSpinSeq = 0;
 let lastBankDiceRollSeq = 0;
 
 function casinoChipPicker() {
+  if (!roomGamblingEnabled) return '<div class="chip-bank" style="color:#8ac926;font-weight:900">Family mode: betting chips are hidden.</div>';
   return `<div class="chip-picker">${[1,5,10,20,50,100,500].map(v => `<button class="btn-action ${activeCasinoChip === v ? 'active' : ''}" onclick="activeCasinoChip=${v}; renderShowcaseState(gameState)">${v}</button>`).join('')}</div>`;
 }
 
 function casinoBet(betType, selection = '', direction = 1) {
+  if (!roomGamblingEnabled) { toast('Family mode is on: betting chips are disabled.'); return; }
   const amount = activeCasinoChip;
   if (direction > 0 && amount > userChipBalance) { toast('Not enough virtual chips for that bet.'); return; }
   send({ type: direction > 0 ? 'casino_bet' : 'casino_bet_subtract', betType, selection, amount });
@@ -1122,6 +1123,7 @@ function casinoBet(betType, selection = '', direction = 1) {
 }
 
 function casinoWagerButtons(betType, selection = '') {
+  if (!roomGamblingEnabled) return '';
   const payload = JSON.stringify(selection).replace(/"/g, '&quot;');
   return `<div class="wager-buttons"><button class="wager-minus" title="Subtract chip" onclick="event.stopPropagation();casinoBet('${betType}',${payload},-1)">−</button><button class="wager-plus" title="Add chip" onclick="event.stopPropagation();casinoBet('${betType}',${payload},1)">+</button></div>`;
 }
