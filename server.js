@@ -31,6 +31,7 @@ const MAX_PLAYERS = 10;
 const HAND_SIZE = 7;
 const CHIP_DENOMINATIONS = [1, 5, 10, 20, 50, 100, 500];
 const VALID_GAME_TYPES = ['chat_room', 'crazy_eights', 'bingo', 'blackjack_chips', 'texas_holdem', 'left_center_right', 'roulette', 'bank_dice', 'baccarat'];
+const GAMBLING_GAME_TYPES = new Set(['blackjack_chips', 'texas_holdem', 'roulette', 'bank_dice', 'baccarat']);
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const BOT_PERSONAS = [
@@ -73,13 +74,13 @@ const BOT_PERSONAS = [
 ];
 
 // ── State ────────────────────────────────────────────────────
-let rooms = {}; 
+let rooms = {};
 
 function makeRoom(code) {
     return {
         code,
         players: [], // { id, name, ws, hand:[], connected:true, isBot: false }
-        state: 'lobby', 
+        state: 'lobby',
         deck: [],
         discard: [],
         turnIdx: 0,
@@ -90,6 +91,8 @@ function makeRoom(code) {
         winner: null,
         gameType: 'crazy_eights',
         chatFilterEnabled: false,
+        gamblingEnabled: false,
+
         gameplayMusicEnabled: true,
         bingoMode: 'hard',
         soundSeq: 0,
@@ -147,7 +150,7 @@ function sendState(room) {
     room.players.forEach((p, idx) => {
         // FIXED: WebSocket.OPEN replaced with 1
         if (!p.ws || p.ws.readyState !== 1) return;
-        
+
         const others = room.players.map((op, oi) => ({
             name: op.name,
             cardCount: op.hand.length,
@@ -200,6 +203,15 @@ function prettyGameName(gameType) {
     })[gameType] || String(gameType || 'Unknown game').replaceAll('_', ' ');
 }
 
+
+function isGamblingGame(gameType) {
+    return GAMBLING_GAME_TYPES.has(gameType);
+}
+
+function canUseGame(room, gameType) {
+    return VALID_GAME_TYPES.includes(gameType) && (!!room?.gamblingEnabled || !isGamblingGame(gameType));
+}
+
 function sendChat(room, from, text) {
     const safeText = room.chatFilterEnabled && from !== 'Server' ? filterChatText(text) : text;
     broadcast(room, { type:'chat', from, text: safeText });
@@ -211,6 +223,7 @@ function lobbyPayload(room) {
         players: room.players.filter(p => p.connected || p.isBot).map(p => p.name),
         hostName: room.players.find(p => p.connected && !p.isBot)?.name || room.players[0]?.name || 'Host',
         chatFilterEnabled: room.chatFilterEnabled,
+        gamblingEnabled: !!room.gamblingEnabled,
         gameType: room.gameType,
         gameplayMusicEnabled: room.gameplayMusicEnabled,
         bingoMode: room.bingoMode || 'hard',
@@ -356,7 +369,7 @@ async function maybeRunCpuChat(room, humanName, humanText) {
 function nextTurn(room, steps=1) {
     const n = room.players.length;
     let nextIdx = ((room.turnIdx + room.dir * steps) % n + n) % n;
-    
+
     let attempts = 0;
     while (!room.players[nextIdx].connected && attempts < n) {
         nextIdx = ((nextIdx + room.dir) % n + n) % n;
@@ -364,7 +377,7 @@ function nextTurn(room, steps=1) {
     }
     room.turnIdx = nextIdx;
     room.hasDrawn = false;
-    
+
     if (room.players[room.turnIdx].isBot) {
         runBotTurn(room);
     }
@@ -751,6 +764,7 @@ function settleHoldem(room) {
 }
 
 function handleHoldemAction(room, playerIdx, action, amount = 0) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'texas_holdem' || !['preflop','flop','turn','river'].includes(data.phase) || data.turnIdx !== playerIdx) return;
     const p = data.players[playerIdx]; if (!p || p.folded || !p.cards?.length) return;
@@ -764,6 +778,7 @@ function handleHoldemAction(room, playerIdx, action, amount = 0) {
 }
 
 function handleTableBet(room, playerIdx, amount) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips') return;
     const player = data.players[playerIdx];
@@ -777,6 +792,7 @@ function handleTableBet(room, playerIdx, amount) {
 
 
 function refundBlackjackBet(room, playerIdx, amount) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips') return;
     const player = data.players[playerIdx];
@@ -792,6 +808,7 @@ function refundBlackjackBet(room, playerIdx, amount) {
 }
 
 function handleDoneBetting(room, playerIdx) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips' || data.phase !== 'betting') return;
     const player = data.players[playerIdx]; if (!player || player.bet <= 0) return;
@@ -801,6 +818,7 @@ function handleDoneBetting(room, playerIdx) {
 }
 
 function handleBlackjackInsurance(room, playerIdx, take) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips' || data.phase !== 'insurance') return;
     const player = data.players[playerIdx]; if (!player || !player.insuranceOffered) return;
@@ -811,6 +829,7 @@ function handleBlackjackInsurance(room, playerIdx, take) {
 }
 
 function handleBlackjackAction(room, playerIdx, action) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'blackjack_chips' || data.phase !== 'player_turn' || data.turnIdx !== playerIdx) return;
     const player = data.players[playerIdx]; if (!player || player.bust || player.stand) return;
@@ -929,6 +948,7 @@ function normalizeBetAmount(player, amount) {
 }
 
 function addCasinoBet(room, playerIdx, bet) {
+    if (!room?.gamblingEnabled) return false;
     const data = room.tableData;
     const player = data?.players?.[playerIdx];
     if (!data || !player || !room.players[playerIdx]?.connected) return false;
@@ -949,6 +969,7 @@ function sameSelection(a = [], b = []) {
 }
 
 function subtractCasinoBet(room, playerIdx, bet) {
+    if (!room?.gamblingEnabled) return false;
     const data = room.tableData;
     const player = data?.players?.[playerIdx];
     if (!data || !player || !room.players[playerIdx]?.connected) return false;
@@ -1054,6 +1075,7 @@ function rouletteOdds(type) {
 }
 
 function spinRoulette(room) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
     const wheel = rouletteWheel(data.isAmerican);
@@ -1088,6 +1110,7 @@ function spinRoulette(room) {
 }
 
 function setRouletteMode(room, isAmerican) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'roulette' || data.phase === 'spinning') return;
     data.isAmerican = !!isAmerican;
@@ -1193,6 +1216,7 @@ function settleBankDice(room, d1, d2) {
 }
 
 function rollBankDice(room) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'bank_dice' || data.phase === 'rolling') return;
     const d1 = 1 + Math.floor(Math.random() * 6);
@@ -1243,6 +1267,7 @@ function shouldBankerDraw(bankerTotal, playerThirdValue) {
 }
 
 function dealBaccarat(room) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data || room.gameType !== 'baccarat' || data.phase !== 'betting') return;
     room.deck = buildDeck();
@@ -1291,6 +1316,7 @@ function dealBaccarat(room) {
 }
 
 function resetCasinoRound(room) {
+    if (!room?.gamblingEnabled) return;
     const data = room.tableData;
     if (!data) return;
     if (room.gameType === 'roulette') {
@@ -1411,6 +1437,7 @@ function startTableGame(room) {
 }
 
 function startGame(room) {
+    if (!canUseGame(room, room.gameType)) { room.gameType = 'crazy_eights'; broadcast(room, lobbyPayload(room)); return; }
     if (room.players.length < 2 && room.gameType !== 'chat_room') return;
     if (room.gameType !== 'crazy_eights') {
         startTableGame(room);
@@ -1423,11 +1450,11 @@ function startGame(room) {
     room.dir = 1;
     room.hasDrawn = false;
     room.winner = null;
-    room.players.forEach(p => { 
-        p.hand = draw(room, HAND_SIZE); 
-        p.connected = true; 
+    room.players.forEach(p => {
+        p.hand = draw(room, HAND_SIZE);
+        p.connected = true;
     });
-    
+
     let startCard;
     do {
         startCard = room.deck.pop();
@@ -1436,7 +1463,7 @@ function startGame(room) {
     room.discard.push(startCard);
     room.activeSuit = startCard.suit;
     room.activeRank = startCard.rank;
-    
+
     sendChat(room, 'Server', 'Crazy Eights started with a standard 52-card deck. All 8s are wild! ' + room.players.map(p=>p.name).join(', '));
     sendState(room);
 }
@@ -1504,11 +1531,11 @@ wss.on('connection', (ws) => {
             broadcast(myRoom, lobbyPayload(myRoom));
             return;
         }
-        
+
         if (msg.type === 'join') {
             const code = (msg.code || '').toUpperCase().trim();
             const name = (msg.name || 'Player').slice(0, 20).trim();
-            
+
             if (!code || code.length < 2) {
                 ws.send(JSON.stringify({ type:'error', msg:'Invalid room code.' }));
                 return;
@@ -1517,7 +1544,7 @@ wss.on('connection', (ws) => {
             if (!rooms[code]) rooms[code] = makeRoom(code);
             const room = rooms[code];
             const existingPlayer = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
-            
+
             if (existingPlayer) {
                 if (existingPlayer.connected) {
                     ws.send(JSON.stringify({ type:'error', msg:'Name taken!' }));
@@ -1540,15 +1567,16 @@ wss.on('connection', (ws) => {
                 room.players.push({ id: myIdx, name, ws, hand:[], connected:true, isBot:false });
             }
             myRoom = room;
-            ws.send(JSON.stringify({ 
-                type: 'joined', 
-                code, 
-                name, 
-                yourIdx: myIdx, 
-                isHost: myIdx === 0, 
+            ws.send(JSON.stringify({
+                type: 'joined',
+                code,
+                name,
+                yourIdx: myIdx,
+                isHost: myIdx === 0,
                 playerCount: room.players.length,
                 gameType: room.gameType,
                 chatFilterEnabled: room.chatFilterEnabled,
+                gamblingEnabled: !!room.gamblingEnabled,
                 gameplayMusicEnabled: room.gameplayMusicEnabled,
                 bingoMode: room.bingoMode || 'hard'
             }));
@@ -1565,15 +1593,18 @@ wss.on('connection', (ws) => {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.chatFilterEnabled = !!msg.chatFilterEnabled;
             myRoom.gameplayMusicEnabled = !!msg.gameplayMusicEnabled;
+            myRoom.gamblingEnabled = !!msg.gamblingEnabled;
+            if (!myRoom.gamblingEnabled && isGamblingGame(myRoom.gameType)) myRoom.gameType = 'crazy_eights';
             if (msg.bingoMode === 'easy' || msg.bingoMode === 'hard') myRoom.bingoMode = msg.bingoMode;
             broadcast(myRoom, lobbyPayload(myRoom));
-            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}. Bingo mode ${(myRoom.bingoMode || 'hard').toUpperCase()}.`);
+            sendChat(myRoom, 'Server', `Chat filter ${myRoom.chatFilterEnabled ? 'enabled' : 'disabled'}. Gambling games ${myRoom.gamblingEnabled ? 'enabled' : 'disabled'}. Gameplay music ${myRoom.gameplayMusicEnabled ? 'enabled' : 'disabled'}. Bingo mode ${(myRoom.bingoMode || 'hard').toUpperCase()}.`);
             return;
         }
 
         if (msg.type === 'set_game_type') {
             if (myIdx !== 0 || !myRoom || myRoom.state !== 'lobby') return;
-            const nextGame = VALID_GAME_TYPES.includes(msg.gameType) ? msg.gameType : 'crazy_eights';
+            const requestedGame = VALID_GAME_TYPES.includes(msg.gameType) ? msg.gameType : 'crazy_eights';
+            const nextGame = canUseGame(myRoom, requestedGame) ? requestedGame : 'crazy_eights';
             myRoom.gameType = nextGame;
             broadcast(myRoom, lobbyPayload(myRoom));
             sendChat(myRoom, 'Server', `Host selected ${prettyGameName(nextGame)}.`);
@@ -1622,7 +1653,7 @@ wss.on('connection', (ws) => {
             sendChat(myRoom, 'Server', `${myRoom.players[myIdx].name} cleared chat.`);
             return;
         }
-        
+
         if (msg.type === 'restart') {
             if (myIdx !== 0 || !myRoom) return;
             myRoom.state = 'lobby';
@@ -1642,7 +1673,7 @@ wss.on('connection', (ws) => {
             if (room.state === 'lobby') {
                 room.players = room.players.filter((p, idx) => idx === 0 || p.connected || p.isBot);
             }
-            
+
             if (room.state === 'playing' && room.gameType === 'crazy_eights' && room.turnIdx === myIdx) {
                 sendChat(room, 'Server', `Skipping ${room.players[myIdx].name}'s turn...`);
                 nextTurn(room);
