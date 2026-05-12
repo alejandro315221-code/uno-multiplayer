@@ -487,6 +487,8 @@ html,body{height:100%;overflow:hidden;background:#0d1b2a;color:#e0e1dd;
     </div>
     <div class="lobby-options" id="host-options">
       <label><input type="checkbox" id="opt-chat-filter" onchange="sendRoomOptions()"> Enable chat filter</label>
+      <label><input type="checkbox" id="opt-gambling" onchange="sendRoomOptions()"> Enable casino and betting games</label>
+      <div style="font-size:.75rem;color:#8ac926;margin:-4px 0 4px">Family mode is on by default: casino and betting games stay hidden until the host enables them.</div>
       <label><input type="checkbox" id="opt-game-music" onchange="sendRoomOptions()"> Enable gameplay music for everyone</label>
       <label>Bingo mode <select id="opt-bingo-mode" class="select-input" onchange="sendRoomOptions()"><option value="hard">Hard cage (no repeats)</option><option value="easy">Easy picker (repeats allowed)</option></select></label>
     </div>
@@ -611,6 +613,7 @@ let isHost = false;
 let gameState = null;
 let pendingPlayIdx = null; // card index waiting for wild color choice
 let roomChatFilterEnabled = false;
+let roomGamblingEnabled = false;
 let selectedGame = 'crazy_eights';
 let roomGameplayMusicEnabled = false;
 let roomBingoMode = 'hard';
@@ -618,6 +621,7 @@ let musicMuted = false;
 let sfxMuted = false;
 let startupSoundPlayed = false;
 let startupSoundBlocked = false;
+const GAMBLING_GAME_TYPES = new Set(['blackjack_chips', 'texas_holdem', 'roulette', 'bank_dice', 'baccarat']);
 const MUSIC_TRACKS = ['/card-table-swing.mp3','/in-the-lobby.mp3','/pass-the-chips.mp3','/game-in-progress.mp3','/dealing-the-cards.mp3'];
 let lastTrackIdx = -1;
 let lastDiceSignature = '';
@@ -770,12 +774,29 @@ function onJoined(msg) {
   myRoom = msg.code;
   selectedGame = msg.gameType || selectedGame;
   roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
   roomBingoMode = msg.bingoMode || roomBingoMode;
   showScreen('lobby');
   document.getElementById('lby-code').textContent = msg.code;
   document.getElementById('lby-code-big').textContent = msg.code;
   document.getElementById('lby-game').textContent = prettyGameName(msg.gameType || selectedGame);
+}
+
+
+function isGamblingGame(gameType) {
+  return GAMBLING_GAME_TYPES.has(gameType);
+}
+
+function syncGamblingGameOptions() {
+  const gameSelect = document.getElementById('lby-game-select');
+  if (!gameSelect) return;
+  [...gameSelect.options].forEach(option => {
+    const gambling = isGamblingGame(option.value);
+    option.hidden = gambling && !roomGamblingEnabled;
+    option.disabled = gambling && !roomGamblingEnabled;
+  });
+  if (!roomGamblingEnabled && isGamblingGame(gameSelect.value)) gameSelect.value = 'crazy_eights';
 }
 
 // ── Lobby ───────────────────────────────────────────────
@@ -791,7 +812,9 @@ function onLobby(msg) {
   showScreen('lobby');
   document.getElementById('lby-code').textContent = myRoom;
   document.getElementById('lby-code-big').textContent = myRoom;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
   selectedGame = msg.gameType || selectedGame;
+  if (!roomGamblingEnabled && isGamblingGame(selectedGame)) selectedGame = 'crazy_eights';
   document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
 
   const ul = document.getElementById('lby-players');
@@ -805,6 +828,7 @@ function onLobby(msg) {
   });
 
   roomChatFilterEnabled = !!msg.chatFilterEnabled;
+  roomGamblingEnabled = !!msg.gamblingEnabled;
   roomGameplayMusicEnabled = !!msg.gameplayMusicEnabled;
   roomBingoMode = msg.bingoMode || roomBingoMode;
   const hostOptions = document.getElementById('host-options');
@@ -812,9 +836,12 @@ function onLobby(msg) {
   const gameSelectPanel = document.getElementById('game-select-panel');
   if (gameSelectPanel && !isHost) gameSelectPanel.remove();
   const gameSelect = document.getElementById('lby-game-select');
+  syncGamblingGameOptions();
   if (gameSelect) gameSelect.value = selectedGame;
   const chatFilter = document.getElementById('opt-chat-filter');
   if (chatFilter) chatFilter.checked = roomChatFilterEnabled;
+  const gamblingOpt = document.getElementById('opt-gambling');
+  if (gamblingOpt) gamblingOpt.checked = roomGamblingEnabled;
   const musicOpt = document.getElementById('opt-game-music');
   if (musicOpt) musicOpt.checked = roomGameplayMusicEnabled;
   const bingoModeOpt = document.getElementById('opt-bingo-mode');
@@ -842,7 +869,8 @@ function setLobbyGameType() {
   if (!isHost) return;
   const sel = document.getElementById('lby-game-select');
   if (!sel) return;
-  selectedGame = sel.value;
+  selectedGame = (!roomGamblingEnabled && isGamblingGame(sel.value)) ? 'crazy_eights' : sel.value;
+  if (sel.value !== selectedGame) sel.value = selectedGame;
   document.getElementById('lby-game').textContent = prettyGameName(selectedGame);
   send({ type:'set_game_type', gameType: selectedGame });
 }
@@ -855,8 +883,8 @@ function openInfoForGame(gameKey) {
   const tabs = document.getElementById('info-tabs');
   const content = document.getElementById('info-content');
   if (!modal || !tabs || !content) return;
-  const keys = Object.keys(GAME_GUIDES);
-  const activeKey = GAME_GUIDES[gameKey] ? gameKey : (gameKey === 'all' ? 'all' : 'crazy_eights');
+  const keys = Object.keys(GAME_GUIDES).filter(key => roomGamblingEnabled || !isGamblingGame(key));
+  const activeKey = GAME_GUIDES[gameKey] && keys.includes(gameKey) ? gameKey : (gameKey === 'all' ? 'all' : 'crazy_eights');
   tabs.innerHTML = '';
 
   const addTab = (key, label) => {
@@ -905,9 +933,10 @@ function prettyGameName(gameType) {
 function sendRoomOptions() {
   if (!isHost) return;
   const chatFilterEnabled = !!document.getElementById('opt-chat-filter')?.checked;
+  const gamblingEnabled = !!document.getElementById('opt-gambling')?.checked;
   const gameplayMusicEnabled = !!document.getElementById('opt-game-music')?.checked;
   const bingoMode = document.getElementById('opt-bingo-mode')?.value || roomBingoMode;
-  send({ type:'set_room_options', chatFilterEnabled, gameplayMusicEnabled, bingoMode });
+  send({ type:'set_room_options', chatFilterEnabled, gamblingEnabled, gameplayMusicEnabled, bingoMode });
 }
 
 function clearChat() {
