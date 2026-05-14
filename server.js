@@ -1648,8 +1648,8 @@ wss.on('connection', (ws) => {
         if (msg.type === 'roulette_spin') { if (myIdx === 0) spinRoulette(myRoom); return; }
         if (msg.type === 'roulette_set_mode') { if (myIdx === 0) setRouletteMode(myRoom, !!msg.isAmerican); return; }
         if (msg.type === 'bank_dice_roll') { if (myIdx === 0) rollBankDice(myRoom); return; }
-        if (msg.type === 'baccarat_deal') { if (myIdx === 0) dealBaccarat(myRoom); return; }
-        if (msg.type === 'casino_new_round') { if (myIdx === 0) resetCasinoRound(myRoom); return; }
+        if (msg.type === 'baccarat_deal') { if (myIdx === 0 || !myRoom.gamblingEnabled) dealBaccarat(myRoom); return; }
+        if (msg.type === 'casino_new_round') { if (myIdx === 0 || (myRoom.gameType === 'baccarat' && !myRoom.gamblingEnabled)) resetCasinoRound(myRoom); return; }
         if (msg.type === 'done_betting') { handleDoneBetting(myRoom, myIdx); return; }
         if (msg.type === 'bj_insurance') { handleBlackjackInsurance(myRoom, myIdx, !!msg.take); return; }
         if (msg.type === 'table_play_again') { if (myIdx === 0 && myRoom?.gameType === 'blackjack_chips') resetBlackjackHand(myRoom); if (myIdx === 0 && myRoom?.gameType === 'texas_holdem') { startHoldemHand(myRoom); sendTableState(myRoom); } return; }
